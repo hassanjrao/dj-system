@@ -21,10 +21,13 @@
         <!-- Fonts and Styles -->
         @yield('css_before')
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
-        <link rel="stylesheet" id="css-main" href="{{ mix('/css/oneui.css') }}">
+        <link rel="stylesheet" id="css-main" href="{{ asset('/css/oneui.css') }}">
 
         <!-- You can include a specific file from public/css/themes/ folder to alter the default color theme of the template. eg: -->
-        <!-- <link rel="stylesheet" id="css-theme" href="{{ mix('/css/themes/amethyst.css') }}"> -->
+        <!-- <link rel="stylesheet" id="css-theme" href="{{ asset('/css/themes/amethyst.css') }}"> -->
+        <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+        <link href="{{ asset('css/vuetify.css') }}" rel="stylesheet">
         @yield('css_after')
 
         <!-- Scripts -->
@@ -155,23 +158,23 @@
                                     <span>Default</span>
                                     <i class="fa fa-circle text-default"></i>
                                 </a>
-                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ mix('css/themes/amethyst.css') }}" href="#">
+                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ asset('css/themes/amethyst.css') }}" href="#">
                                     <span>Amethyst</span>
                                     <i class="fa fa-circle text-amethyst"></i>
                                 </a>
-                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ mix('css/themes/city.css') }}" href="#">
+                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ asset('css/themes/city.css') }}" href="#">
                                     <span>City</span>
                                     <i class="fa fa-circle text-city"></i>
                                 </a>
-                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ mix('css/themes/flat.css') }}" href="#">
+                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ asset('css/themes/flat.css') }}" href="#">
                                     <span>Flat</span>
                                     <i class="fa fa-circle text-flat"></i>
                                 </a>
-                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ mix('css/themes/modern.css') }}" href="#">
+                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ asset('css/themes/modern.css') }}" href="#">
                                     <span>Modern</span>
                                     <i class="fa fa-circle text-modern"></i>
                                 </a>
-                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ mix('css/themes/smooth.css') }}" href="#">
+                                <a class="dropdown-item d-flex align-items-center justify-content-between font-medium" data-toggle="theme" data-theme="{{ asset('css/themes/smooth.css') }}" href="#">
                                     <span>Smooth</span>
                                     <i class="fa fa-circle text-smooth"></i>
                                 </a>
@@ -344,7 +347,7 @@
                                     </a>
                                 </div>
                             </div>
-                        </div>                        
+                        </div>
                         <!-- END User Dropdown -->
 
                         <!-- Notifications Dropdown -->
@@ -431,7 +434,7 @@
                                     </a>
                                 </div>
                             </div>
-                        </div>                        
+                        </div>
                         <!-- END Notifications Dropdown -->
 
                         <!-- Toggle Side Overlay -->
@@ -503,10 +506,13 @@
 
             Core libraries and functionality
         -->
-        <script src="{{ mix('js/oneui.app.js') }}"></script>
+        <script src="{{ asset('js/oneui.app.js') }}"></script>
 
         <!-- Laravel Scaffolding JS -->
-        <!-- <script src="{{ mix('/js/laravel.app.js') }}"></script> -->
+        <!-- <script src="{{ asset('/js/laravel.app.js') }}"></script> -->
+
+        <!-- Vue.js -->
+        <script src="{{ asset('js/app.js') }}"></script>
 
         @yield('js_after')
     </body>

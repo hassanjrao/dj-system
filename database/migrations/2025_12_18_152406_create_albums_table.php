@@ -15,6 +15,10 @@ class CreateAlbumsTable extends Migration
     {
         Schema::create('albums', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
+            $table->foreignId('client_id')->nullable()->constrained()->onDelete('set null');
+            $table->date('release_date')->nullable();
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }
