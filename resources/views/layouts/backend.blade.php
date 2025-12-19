@@ -28,6 +28,22 @@
         <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
         <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
         <link href="{{ asset('css/vuetify.css') }}" rel="stylesheet">
+
+        <style>
+            .v-application {
+                background-color: transparent !important;
+                font-family: inherit;
+            }
+
+            .swal2-confirm {
+                color: white !important;
+                /* or any other color */
+            }
+
+            .swal2-cancel {
+                color: white !important;
+            }
+        </style>
         @yield('css_after')
 
         <!-- Scripts -->
@@ -480,6 +496,7 @@
 
             <!-- Main Container -->
             <main id="main-container">
+                
                 @yield('content')
             </main>
             <!-- END Main Container -->
@@ -508,11 +525,38 @@
         -->
         <script src="{{ asset('js/oneui.app.js') }}"></script>
 
+        <script src="{{ asset('js/app.js') }}"></script>
         <!-- Laravel Scaffolding JS -->
-        <!-- <script src="{{ asset('/js/laravel.app.js') }}"></script> -->
+       <script src="{{ asset('/js/laravel.app.js') }}"></script>
 
         <!-- Vue.js -->
-        <script src="{{ asset('js/app.js') }}"></script>
+
+        <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        @include('sweetalert::alert')
+
+
+        <script>
+            function confirmDelete(id) {
+                Swal.fire({
+                    title: 'Are you sure?',
+                    text: "You won't be able to revert this!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Yes, delete it!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $("#form-" + id).submit();
+                        // Swal.fire(
+                        //     'Deleted!',
+                        //     'Your file has been deleted.',
+                        //     'success'
+                        // )
+                    }
+                })
+            }
+        </script>
 
         @yield('js_after')
     </body>

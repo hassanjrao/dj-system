@@ -18,19 +18,40 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth'])->prefix('api')->group(function () {
     // Assignment routes
-    Route::apiResource('assignments', 'App\Http\Controllers\AssignmentController');
+    Route::get('assignments', 'App\Http\Controllers\AssignmentController@index');
+    Route::post('assignments', 'App\Http\Controllers\AssignmentController@store');
+    Route::get('assignments/{id}', 'App\Http\Controllers\AssignmentController@show');
+    Route::put('assignments/{id}', 'App\Http\Controllers\AssignmentController@update');
+    Route::delete('assignments/{id}', 'App\Http\Controllers\AssignmentController@destroy');
+    Route::get('assignments/{id}/available-songs', 'App\Http\Controllers\AssignmentController@getAvailableSongs');
     
     // Client routes
-    Route::apiResource('clients', 'App\Http\Controllers\ClientController');
+    Route::get('clients', 'App\Http\Controllers\ClientController@index');
+    Route::post('clients', 'App\Http\Controllers\ClientController@store');
+    Route::get('clients/{id}', 'App\Http\Controllers\ClientController@show');
+    Route::put('clients/{id}', 'App\Http\Controllers\ClientController@update');
+    Route::delete('clients/{id}', 'App\Http\Controllers\ClientController@destroy');
     
     // Album routes
-    Route::apiResource('albums', 'App\Http\Controllers\AlbumController');
+    Route::get('albums', 'App\Http\Controllers\AlbumController@index');
+    Route::post('albums', 'App\Http\Controllers\AlbumController@store');
+    Route::get('albums/{id}', 'App\Http\Controllers\AlbumController@show');
+    Route::put('albums/{id}', 'App\Http\Controllers\AlbumController@update');
+    Route::delete('albums/{id}', 'App\Http\Controllers\AlbumController@destroy');
+    
+    // User routes
+    Route::get('users/by-department/{departmentId}', 'App\Http\Controllers\UserController@getByDepartment');
+    Route::get('users/available-for-assignment', 'App\Http\Controllers\UserController@getAvailableForAssignment');
+    
+    // Artist routes
+    Route::get('artists', 'App\Http\Controllers\AssignmentController@getArtists');
     
     // Deliverable routes
-    Route::apiResource('deliverables', 'App\Http\Controllers\DeliverableController');
-    Route::post('assignments/{assignment}/deliverables/{deliverable}/status', 'App\Http\Controllers\DeliverableController@updateStatus');
+    Route::get('deliverables', 'App\Http\Controllers\DeliverableController@index');
+    Route::get('deliverables/pre-select', 'App\Http\Controllers\DeliverableController@preSelect');
+    Route::get('music-types/{id}/completion-days', 'App\Http\Controllers\AssignmentController@getCompletionDays');
     
     // Assignment relationship routes
     Route::post('assignment-relationships', 'App\Http\Controllers\AssignmentRelationshipController@store');

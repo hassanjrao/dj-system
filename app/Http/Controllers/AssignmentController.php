@@ -33,9 +33,10 @@ class AssignmentController extends Controller
                 $query->where('department_id', '!=', $musicCreationDept->id);
             }
         } else {
-            // Only user's department
-            if ($user->department_id) {
-                $query->where('department_id', $user->department_id);
+            // Only user's departments (many-to-many)
+            $userDepartmentIds = $user->departments()->pluck('departments.id');
+            if ($userDepartmentIds->isNotEmpty()) {
+                $query->whereIn('department_id', $userDepartmentIds);
             } else {
                 $assignments = collect([]);
                 return view('assignments.index', compact('assignments'));
@@ -63,7 +64,7 @@ class AssignmentController extends Controller
         $query->orderBy('completion_date', 'asc');
 
         $assignments = $query->get();
-        
+
         // Add days remaining
         $assignments->each(function($assignment) {
             if ($assignment->completion_date) {
@@ -81,33 +82,60 @@ class AssignmentController extends Controller
 
     public function create()
     {
-        $departments = Department::where('is_active', true)->get();
-        return view('assignments.create', compact('departments'));
+        $departments = Department::all();
+        $clients = \App\Models\Client::orderBy('name')->get();
+        $users = \App\Models\User::all(['id', 'name', 'email']);
+
+        // Get lookup data
+        $lookupData = [
+            'music_types' => \App\Models\MusicType::all(),
+            'music_keys' => \App\Models\MusicKey::all(),
+            'music_genres' => \App\Models\MusicGenre::all(),
+            'music_creation_statuses' => \App\Models\MusicCreationStatus::all(),
+            'edit_types' => \App\Models\EditType::all(),
+            'footage_types' => \App\Models\FootageType::all(),
+        ];
+
+        return view('assignments.create', compact('departments', 'clients', 'users', 'lookupData'));
     }
 
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::findOrFail($id);
-        
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'artists'])->findOrFail($id);
+
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
         }
-        
-        $departments = Department::where('is_active', true)->get();
-        return view('assignments.edit', compact('assignment', 'departments'));
+
+        $departments = Department::all();
+        $clients = \App\Models\Client::orderBy('name')->get();
+        $users = \App\Models\User::all(['id', 'name', 'email']);
+
+        // Get lookup data
+        $lookupData = [
+            'music_types' => \App\Models\MusicType::all(),
+            'music_keys' => \App\Models\MusicKey::all(),
+            'music_genres' => \App\Models\MusicGenre::all(),
+            'music_creation_statuses' => \App\Models\MusicCreationStatus::all(),
+            'edit_types' => \App\Models\EditType::all(),
+            'footage_types' => \App\Models\FootageType::all(),
+        ];
+
+        return view('assignments.edit', compact('assignment', 'departments', 'clients', 'users', 'lookupData'));
     }
 
     public function store(Request $request)
     {
         $user = Auth::user();
-        
+
         // Check permissions
         if (!$user->hasRole('super-admin') && !$user->hasRole('admin')) {
             if ($user->hasRole('view-all-edit-assigned')) {
-                // Check if user can edit this department
+                // Check if user can edit this department (user must belong to the department)
                 $deptId = $request->department_id;
-                if ($user->department_id != $deptId) {
+                $userDepartmentIds = $user->departments()->pluck('departments.id');
+                if (!$userDepartmentIds->contains($deptId)) {
                     return response()->json(['error' => 'Unauthorized'], 403);
                 }
             } else {
@@ -135,7 +163,7 @@ class AssignmentController extends Controller
 
         // Department-specific validation
         $department = Department::findOrFail($request->department_id);
-        
+
         if ($department->slug === 'music-creation') {
             $validated = array_merge($validated, $request->validate([
                 'music_type_id' => 'required|exists:music_types,id',
@@ -156,13 +184,13 @@ class AssignmentController extends Controller
                 'deliverables' => 'nullable|array',
                 'deliverables.*' => 'exists:deliverables,id',
             ]));
-            
+
             // Auto-populate from linked song
             $linkedSong = Assignment::findOrFail($request->linked_song_assignment_id);
             $validated['song_name'] = $linkedSong->song_name;
             $validated['release_date'] = $linkedSong->release_date;
             $validated['music_type_id'] = $linkedSong->music_type_id;
-            
+
             // Calculate completion date
             if (!$request->completion_date) {
                 $validated['completion_date'] = $this->calculateCompletionDate(
@@ -286,7 +314,7 @@ class AssignmentController extends Controller
 
         // Department-specific validation
         $department = $assignment->department;
-        
+
         if ($department->slug === 'music-creation') {
             $validated = array_merge($validated, $request->validate([
                 'music_type_id' => 'nullable|exists:music_types,id',
@@ -379,7 +407,6 @@ class AssignmentController extends Controller
 
         // Otherwise, get all active deliverables for the department
         $deliverables = Deliverable::where('department_id', $departmentId)
-            ->where('is_active', true)
             ->pluck('id')
             ->toArray();
 
@@ -389,7 +416,7 @@ class AssignmentController extends Controller
     private function populateChildAssignment($parentAssignment, $childDepartmentId)
     {
         $childDept = Department::findOrFail($childDepartmentId);
-        
+
         $childData = [
             'client_id' => $parentAssignment->client_id,
             'department_id' => $childDepartmentId,
@@ -406,7 +433,7 @@ class AssignmentController extends Controller
         }
         if ($parentAssignment->music_type_id) {
             $childData['music_type_id'] = $parentAssignment->music_type_id;
-            
+
             // Calculate completion date
             $childData['completion_date'] = $this->calculateCompletionDate(
                 $parentAssignment->music_type_id,
@@ -441,8 +468,9 @@ class AssignmentController extends Controller
             return true;
         }
 
-        // User's department only
-        return $user->department_id == $assignment->department_id;
+        // User's departments only (many-to-many)
+        $userDepartmentIds = $user->departments()->pluck('departments.id');
+        return $userDepartmentIds->contains($assignment->department_id);
     }
 
     private function canEditAssignment($user, $assignment)
@@ -452,15 +480,58 @@ class AssignmentController extends Controller
         }
 
         if ($user->hasRole('view-all-edit-assigned')) {
-            // Can only edit assigned departments
-            return $user->department_id == $assignment->department_id;
+            // Can only edit assigned departments (many-to-many)
+            $userDepartmentIds = $user->departments()->pluck('departments.id');
+            return $userDepartmentIds->contains($assignment->department_id);
         }
 
         if ($user->hasRole('view-all-update-assigned')) {
-            // Can only update assigned departments
-            return $user->department_id == $assignment->department_id;
+            // Can only update assigned departments (many-to-many)
+            $userDepartmentIds = $user->departments()->pluck('departments.id');
+            return $userDepartmentIds->contains($assignment->department_id);
         }
 
         return false;
+    }
+
+    public function getArtists()
+    {
+        $artists = AssignmentArtist::select('name')
+            ->distinct()
+            ->orderBy('name')
+            ->pluck('name');
+
+        return response()->json($artists);
+    }
+
+    public function getAvailableSongs($id)
+    {
+        // Get Music Creation assignments that can be linked
+        $musicCreationDept = Department::where('slug', 'music-creation')->first();
+        if (!$musicCreationDept) {
+            return response()->json([]);
+        }
+
+        $songs = Assignment::where('department_id', $musicCreationDept->id)
+            ->whereNotNull('song_name')
+            ->with('musicType')
+            ->get(['id', 'song_name', 'release_date', 'music_type_id']);
+
+        return response()->json($songs);
+    }
+
+    public function getCompletionDays($musicTypeId)
+    {
+        $completionDay = MusicTypeCompletionDay::where('music_type_id', $musicTypeId)->first();
+
+        if ($completionDay) {
+            return response()->json([
+                'days_before_release' => $completionDay->days_before_release
+            ]);
+        }
+
+        return response()->json([
+            'days_before_release' => 7 // Default
+        ]);
     }
 }
