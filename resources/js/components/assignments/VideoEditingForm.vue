@@ -86,6 +86,8 @@
     <v-btn
       v-if="localData.release_timing === 'pre-release'"
       small
+      outlined
+      color="primary"
       @click="calculateCompletionDate"
       >Auto-Calculate</v-btn
     >

@@ -17,8 +17,8 @@ class ClientController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255|unique:clients,email',
+            'phone' => 'nullable|string|max:255|unique:clients,phone',
             'notes' => 'nullable|string',
         ]);
 
@@ -35,7 +35,7 @@ class ClientController extends Controller
     public function update(Request $request, $id)
     {
         $client = Client::findOrFail($id);
-        
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',

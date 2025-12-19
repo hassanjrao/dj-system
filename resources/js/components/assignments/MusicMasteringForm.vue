@@ -45,7 +45,9 @@
       hint="Auto-calculated based on song type and release date"
       persistent-hint
     ></v-text-field>
-    <v-btn small @click="calculateCompletionDate">Auto-Calculate</v-btn>
+    <v-btn small outlined color="primary" @click="calculateCompletionDate"
+      >Auto-Calculate</v-btn
+    >
 
     <!-- Deliverables -->
     <v-divider class="my-4"></v-divider>

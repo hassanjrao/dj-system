@@ -136,10 +136,9 @@
             required
           ></v-text-field>
         </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn text @click="showAlbumDialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="createAlbum">Create</v-btn>
+        <v-card-actions class="justify-end">
+          <v-btn text small @click="showAlbumDialog = false" class="mr-2">Cancel</v-btn>
+          <v-btn color="primary" small @click="createAlbum">Create</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

@@ -36,13 +36,13 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('assignment-relationships/{id}', 'App\Http\Controllers\AssignmentRelationshipController@destroy');
 
     // Lookup routes
-    Route::get('api/lookup/music-types', 'App\Http\Controllers\LookupController@musicTypes');
-    Route::get('api/lookup/music-keys', 'App\Http\Controllers\LookupController@musicKeys');
-    Route::get('api/lookup/music-genres', 'App\Http\Controllers\LookupController@musicGenres');
-    Route::get('api/lookup/music-creation-statuses', 'App\Http\Controllers\LookupController@musicCreationStatuses');
-    Route::get('api/lookup/edit-types', 'App\Http\Controllers\LookupController@editTypes');
-    Route::get('api/lookup/footage-types', 'App\Http\Controllers\LookupController@footageTypes');
-    Route::get('api/lookup/release-timings', 'App\Http\Controllers\LookupController@releaseTimings');
-    Route::get('api/lookup/departments', 'App\Http\Controllers\LookupController@departments');
-    Route::get('api/lookup/deliverables', 'App\Http\Controllers\LookupController@deliverables');
+    Route::get('lookup/music-types', 'App\Http\Controllers\LookupController@musicTypes');
+    Route::get('lookup/music-keys', 'App\Http\Controllers\LookupController@musicKeys');
+    Route::get('lookup/music-genres', 'App\Http\Controllers\LookupController@musicGenres');
+    Route::get('lookup/music-creation-statuses', 'App\Http\Controllers\LookupController@musicCreationStatuses');
+    Route::get('lookup/edit-types', 'App\Http\Controllers\LookupController@editTypes');
+    Route::get('lookup/footage-types', 'App\Http\Controllers\LookupController@footageTypes');
+    Route::get('lookup/release-timings', 'App\Http\Controllers\LookupController@releaseTimings');
+    Route::get('lookup/departments', 'App\Http\Controllers\LookupController@departments');
+    Route::get('lookup/deliverables', 'App\Http\Controllers\LookupController@deliverables');
 });

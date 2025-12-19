@@ -114,6 +114,12 @@ class Assignment extends Model
 
     public function artists()
     {
+        return $this->belongsToMany(Artist::class, 'assignment_artists')
+            ->withTimestamps();
+    }
+
+    public function assignmentArtists()
+    {
         return $this->hasMany(AssignmentArtist::class);
     }
 
