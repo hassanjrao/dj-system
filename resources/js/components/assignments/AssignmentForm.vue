@@ -376,9 +376,7 @@ export default {
 
       this.loadingUsers = true;
       axios
-        .get(`/api/users/available-for-assignment`, {
-          params: { department_id: this.formData.department_id },
-        })
+        .get(`/users/${this.formData.department_id}`)
         .then((response) => {
           this.filteredUsers = response.data;
           this.loadingUsers = false;
@@ -441,8 +439,8 @@ export default {
         this.loading = true;
 
         const url = this.isEdit
-          ? `/api/assignments/${this.formData.id}`
-          : "/api/assignments";
+          ? `/assignments/${this.formData.id}`
+          : "/assignments";
         const method = this.isEdit ? "put" : "post";
 
         axios[method](url, this.formData)

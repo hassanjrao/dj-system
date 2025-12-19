@@ -35,8 +35,7 @@ class UserSeeder extends Seeder
             ['email' => 'superadmin@example.com'],
             [
                 'name' => 'Super Admin',
-                'password' => Hash::make('password'),
-                'department_id' => null, // Super admin doesn't need a department
+                'password' => Hash::make('password')
             ]
         );
         if ($superAdminRole) {
@@ -48,8 +47,7 @@ class UserSeeder extends Seeder
             ['email' => 'admin@example.com'],
             [
                 'name' => 'Admin User',
-                'password' => Hash::make('password'),
-                'department_id' => null, // Admin doesn't need a department
+                'password' => Hash::make('password')
             ]
         );
         if ($adminRole) {
@@ -63,7 +61,6 @@ class UserSeeder extends Seeder
                 [
                     'name' => 'Music Mastering Manager',
                     'password' => Hash::make('password'),
-                    'department_id' => $musicMastering->id,
                 ]
             );
             if ($viewAllEditRole) {
@@ -78,7 +75,6 @@ class UserSeeder extends Seeder
                 [
                     'name' => 'Graphic Design Manager',
                     'password' => Hash::make('password'),
-                    'department_id' => $graphicDesign->id,
                 ]
             );
             if ($viewAllEditRole) {
@@ -93,7 +89,6 @@ class UserSeeder extends Seeder
                 [
                     'name' => 'Video Editing Manager',
                     'password' => Hash::make('password'),
-                    'department_id' => $videoEditing->id,
                 ]
             );
             if ($viewAllEditRole) {
@@ -108,7 +103,6 @@ class UserSeeder extends Seeder
                 [
                     'name' => 'Music Mastering Staff',
                     'password' => Hash::make('password'),
-                    'department_id' => $musicMastering->id,
                 ]
             );
             if ($viewAllUpdateRole) {
@@ -123,7 +117,6 @@ class UserSeeder extends Seeder
                 [
                     'name' => 'Distribution Staff',
                     'password' => Hash::make('password'),
-                    'department_id' => $distribution->id,
                 ]
             );
             if ($viewAllUpdateRole) {
@@ -138,7 +131,6 @@ class UserSeeder extends Seeder
                 [
                     'name' => 'Music Mastering User',
                     'password' => Hash::make('password'),
-                    'department_id' => $musicMastering->id,
                 ]
             );
         }
@@ -150,7 +142,6 @@ class UserSeeder extends Seeder
                 [
                     'name' => 'Graphic Design User',
                     'password' => Hash::make('password'),
-                    'department_id' => $graphicDesign->id,
                 ]
             );
         }

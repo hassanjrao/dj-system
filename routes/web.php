@@ -35,6 +35,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('assignment-relationships', 'App\Http\Controllers\AssignmentRelationshipController@store');
     Route::delete('assignment-relationships/{id}', 'App\Http\Controllers\AssignmentRelationshipController@destroy');
 
+    // User routes
+    Route::get('users/{departmentId}', 'App\Http\Controllers\UserController@getByDepartment');
+
     // Lookup routes
     Route::get('lookup/music-types', 'App\Http\Controllers\LookupController@musicTypes');
     Route::get('lookup/music-keys', 'App\Http\Controllers\LookupController@musicKeys');
