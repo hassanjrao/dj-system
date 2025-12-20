@@ -13,6 +13,7 @@ class Assignment extends Model
         'client_id',
         'department_id',
         'assigned_to_id',
+        'created_by',
         'assignment_name',
         'completion_date',
         'release_date',
@@ -53,6 +54,11 @@ class Assignment extends Model
     public function assignedTo()
     {
         return $this->belongsTo(User::class, 'assigned_to_id');
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function album()

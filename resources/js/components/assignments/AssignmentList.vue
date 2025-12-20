@@ -106,16 +106,13 @@
                   </div>
                 </div>
               </template>
-              <template v-slot:item.completion_date="{ item }">
-                {{ item.completion_date ? formatDate(item.completion_date) : "N/A" }}
-              </template>
               <template v-slot:item.assignment_name="{ item }">
                 <div>
                   <div class="font-weight-medium">
                     {{ item.assignment_display_name || "N/A" }}
                   </div>
                   <div class="text-caption text--secondary">
-                    {{ item.assigned_to ? item.assigned_to.name : "Unassigned" }}
+                    {{ item.created_by ? item.created_by.name : "N/A" }}
                   </div>
                 </div>
               </template>

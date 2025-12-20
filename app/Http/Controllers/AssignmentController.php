@@ -171,6 +171,9 @@ class AssignmentController extends Controller
             }
         }
 
+        // Set created_by to current user
+        $validated['created_by'] = Auth::id();
+
         // Create assignment
         $assignment = Assignment::create($validated);
 
@@ -556,7 +559,7 @@ class AssignmentController extends Controller
 
         // Query for filtered assignments
         $query = Assignment::with([
-            'client', 'department', 'assignedTo', 'album', 'deliverables', 'status'
+            'client', 'department', 'assignedTo', 'album', 'deliverables', 'status', 'createdBy'
         ])->where('department_id', $departmentId);
 
         // Filter by status
@@ -592,23 +595,37 @@ class AssignmentController extends Controller
 
         $assignments = $query->get();
 
-        // Calculate days remaining for each assignment
-        $assignments = $assignments->map(function ($assignment) use ($today) {
-            $assignment->assignment_display_name = $assignment->song_name ?: $assignment->assignment_name;
-
-            if ($assignment->completion_date) {
-                $daysRemaining = $today->diffInDays($assignment->completion_date, false);
-                $assignment->days_remaining = $daysRemaining;
-            } else {
-                $assignment->days_remaining = null;
-            }
-
-            // Ensure assignment_status is available (use code if status relationship is loaded)
-            if ($assignment->status && isset($assignment->status->code)) {
-                $assignment->assignment_status = $assignment->status->code;
-            }
-
-            return $assignment;
+        // Return only needed fields for frontend
+        $assignments = $assignments->map(function ($assignment) {
+            return [
+                'id' => $assignment->id,
+                'assignment_id' => $assignment->assignment_id, // Accessor from model (requires department)
+                'assignment_display_name' => $assignment->song_name ?: $assignment->assignment_name,
+                'completion_date' => $assignment->completion_date ? $assignment->completion_date->diffForHumans() : null,
+                'assignment_status' => $assignment->assignment_status,
+                'department' => $assignment->department ? [
+                    'id' => $assignment->department->id,
+                    'name' => $assignment->department->name,
+                ] : null,
+                'assigned_to' => $assignment->assignedTo ? [
+                    'id' => $assignment->assignedTo->id,
+                    'name' => $assignment->assignedTo->name,
+                ] : null,
+                'created_by' => $assignment->createdBy ? [
+                    'id' => $assignment->createdBy->id,
+                    'name' => $assignment->createdBy->name,
+                ] : null,
+                'client' => $assignment->client ? [
+                    'id' => $assignment->client->id,
+                    'name' => $assignment->client->name,
+                ] : null,
+                'deliverables' => $assignment->deliverables->map(function ($deliverable) {
+                    return [
+                        'id' => $deliverable->id,
+                        'name' => $deliverable->name,
+                    ];
+                })->toArray(),
+            ];
         });
 
         return response()->json([
