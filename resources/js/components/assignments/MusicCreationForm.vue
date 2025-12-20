@@ -1,128 +1,150 @@
 <template>
   <div>
-    <!-- Music Type -->
-    <v-select
-      v-model="localData.music_type_id"
-      :items="lookupData.music_types || []"
-      item-text="name"
-      item-value="id"
-      label="Music Type *"
-      :rules="[(v) => !!v || 'Music type is required']"
-      required
-    ></v-select>
+    <v-row>
+      <!-- Left Column -->
+      <v-col cols="12" md="6">
+        <!-- Assigned To is handled in parent AssignmentForm -->
 
-    <!-- Song Name -->
-    <v-text-field
-      v-model="localData.song_name"
-      label="Song Name *"
-      :rules="[(v) => !!v || 'Song name is required']"
-      required
-    ></v-text-field>
+        <!-- Music Type -->
+        <v-autocomplete
+          v-model="localData.music_type_id"
+          :items="lookupData.music_types || []"
+          item-text="name"
+          item-value="id"
+          label="Music Type *"
+          :rules="[(v) => !!v || 'Music type is required']"
+          required
+        ></v-autocomplete>
 
-    <!-- Version Name -->
-    <v-text-field v-model="localData.version_name" label="Version Name"></v-text-field>
+        <!-- Song Name -->
+        <v-text-field
+          v-model="localData.song_name"
+          label="Song Name *"
+          :rules="[(v) => !!v || 'Song name is required']"
+          required
+        ></v-text-field>
 
-    <!-- Album Selector -->
-    <v-select
-      v-model="localData.album_id"
-      :items="albums"
-      item-text="name"
-      item-value="id"
-      label="Album"
-      clearable
-    >
-      <template v-slot:append-item>
-        <v-list-item @click="showAlbumDialog = true">
-          <v-list-item-content>
-            <v-list-item-title>+ Create New Album</v-list-item-title>
-          </v-list-item-content>
-        </v-list-item>
-      </template>
-    </v-select>
+        <!-- Version Name -->
+        <v-text-field
+          v-model="localData.version_name"
+          label="Version Name"
+        ></v-text-field>
 
-    <!-- Artists -->
-    <v-combobox
-      v-model="localData.artists"
-      :items="artistSuggestions"
-      label="Artists *"
-      multiple
-      chips
-      :rules="[(v) => (v && v.length > 0) || 'At least one artist is required']"
-      @input="onArtistsInput"
-      required
-    ></v-combobox>
+        <!-- Album Selector -->
+        <v-autocomplete
+          v-model="localData.album_id"
+          :items="albums"
+          item-text="name"
+          item-value="id"
+          label="Album"
+          clearable
+        >
+          <template v-slot:append-item>
+            <v-list-item @click="showAlbumDialog = true">
+              <v-list-item-content>
+                <v-list-item-title>+ Create New Album</v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
+          </template>
+        </v-autocomplete>
 
-    <!-- BPM -->
-    <v-text-field
-      v-model.number="localData.bpm"
-      label="BPM"
-      type="number"
-      :rules="[(v) => !v || (v >= 0 && v <= 999) || 'BPM must be between 0 and 999']"
-      maxlength="3"
-    ></v-text-field>
+        <!-- Artists -->
+        <v-autocomplete
+          v-model="localData.artists"
+          :items="artistSuggestions"
+          label="Artist(s) *"
+          multiple
+          chips
+          :rules="[(v) => (v && v.length > 0) || 'At least one artist is required']"
+          @input="onArtistsInput"
+          required
+        ></v-autocomplete>
+      </v-col>
 
-    <!-- Music Key -->
-    <v-select
-      v-model="localData.music_key_id"
-      :items="lookupData.music_keys || []"
-      item-text="name"
-      item-value="id"
-      label="Music Key"
-      clearable
-    ></v-select>
+      <!-- Right Column -->
+      <v-col cols="12" md="6">
+        <!-- BPM -->
+        <v-text-field
+          v-model.number="localData.bpm"
+          label="BPM"
+          type="number"
+          :rules="[(v) => !v || (v >= 0 && v <= 999) || 'BPM must be between 0 and 999']"
+          maxlength="3"
+        ></v-text-field>
 
-    <!-- Genre -->
-    <v-select
-      v-model="localData.music_genre_id"
-      :items="lookupData.music_genres || []"
-      item-text="name"
-      item-value="id"
-      label="Genre"
-      clearable
-    ></v-select>
+        <!-- Music Key -->
+        <v-autocomplete
+          v-model="localData.music_key_id"
+          :items="lookupData.music_keys || []"
+          item-text="name"
+          item-value="id"
+          label="Key"
+          clearable
+        ></v-autocomplete>
 
-    <!-- Completion Date -->
-    <v-date-picker
-      v-model="localData.completion_date"
-      label="Completion Date"
-    ></v-date-picker>
-    <v-text-field
-      v-model="localData.completion_date"
-      label="Completion Date"
-      type="date"
-    ></v-text-field>
+        <!-- Genre -->
+        <v-autocomplete
+          v-model="localData.music_genre_id"
+          :items="lookupData.music_genres || []"
+          item-text="name"
+          item-value="id"
+          label="Genre"
+          clearable
+        ></v-autocomplete>
 
-    <!-- Release Date -->
-    <v-text-field
-      v-model="localData.release_date"
-      label="Release Date *"
-      type="date"
-      :rules="[(v) => !!v || 'Release date is required']"
-      required
-    ></v-text-field>
+        <!-- Release Date -->
+        <v-text-field
+          v-model="localData.release_date"
+          label="Release Date & Time (PST) *"
+          type="datetime-local"
+          :rules="[(v) => !!v || 'Release date is required']"
+          required
+        ></v-text-field>
 
-    <!-- Status -->
-    <v-select
-      v-model="localData.music_creation_status_id"
-      :items="lookupData.music_creation_statuses || []"
-      item-text="name"
-      item-value="id"
-      label="Status"
-      clearable
-    ></v-select>
+        <!-- Completion Date -->
+        <v-row>
+          <v-col cols="9">
+            <v-text-field
+              v-model="localData.completion_date"
+              label="Completion Date"
+              type="date"
+            ></v-text-field>
+          </v-col>
+          <v-col cols="3" class="d-flex align-center">
+            <v-btn small outlined color="primary" @click="calculateCompletionDate"
+              >UPDATE</v-btn
+            >
+          </v-col>
+        </v-row>
+
+        <!-- Status -->
+        <v-autocomplete
+          v-model="localData.music_creation_status_id"
+          :items="lookupData.music_creation_statuses || []"
+          item-text="name"
+          item-value="id"
+          label="Creation Status"
+          clearable
+        ></v-autocomplete>
+      </v-col>
+    </v-row>
 
     <!-- Link Child Assignments -->
     <v-divider class="my-4"></v-divider>
-    <v-subheader>Link Child Assignments</v-subheader>
-    <v-select
-      v-model="localData.child_assignment_types"
-      :items="availableChildDepartments"
-      item-text="name"
-      item-value="id"
-      label="Select departments for child assignments"
-      multiple
-      chips
-    ></v-select>
+    <v-subheader>PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader>
+    <v-row>
+      <v-col cols="12">
+        <v-autocomplete
+          v-model="localData.child_assignment_types"
+          :items="availableChildDepartments"
+          item-text="name"
+          item-value="id"
+          label="Select departments for child assignments"
+          multiple
+          chips
+        ></v-autocomplete>
+      </v-col>
+    </v-row>
 
     <!-- Album Creation Dialog -->
     <v-dialog v-model="showAlbumDialog" max-width="500">
@@ -234,7 +256,8 @@ export default {
       axios
         .get("/api/artists")
         .then((response) => {
-          this.artistSuggestions = response.data;
+          // Extract artist names from the response
+          this.artistSuggestions = response.data.map((artist) => artist.name || artist);
         })
         .catch((error) => {
           console.error("Error loading artists:", error);
@@ -244,7 +267,7 @@ export default {
       if (!this.newAlbumName) return;
 
       axios
-        .post("/api/albums", { name: this.newAlbumName })
+        .post("albums", { name: this.newAlbumName })
         .then((response) => {
           this.albums.push(response.data);
           this.localData.album_id = response.data.id;
@@ -255,6 +278,10 @@ export default {
         .catch((error) => {
           console.error("Error creating album:", error);
         });
+    },
+    calculateCompletionDate() {
+      // Emit event to parent to calculate completion date
+      this.$emit("calculate-completion-date");
     },
     updateModel() {
       this.$emit("update:modelValue", this.localData);

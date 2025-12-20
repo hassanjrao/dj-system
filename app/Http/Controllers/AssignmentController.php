@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\MusicTypeCompletionDay;
 use App\Models\Deliverable;
 use App\Models\AssignmentArtist;
+use App\Models\Artist;
 use App\Models\AssignmentRelationship;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -55,7 +56,7 @@ class AssignmentController extends Controller
 
         // Show unfinished deliverables
         if ($request->has('unfinished') && $request->unfinished) {
-            $query->whereHas('deliverables', function($q) {
+            $query->whereHas('deliverables', function ($q) {
                 $q->where('assignment_deliverables.status', '!=', 'completed');
             });
         }
@@ -66,7 +67,7 @@ class AssignmentController extends Controller
         $assignments = $query->get();
 
         // Add days remaining
-        $assignments->each(function($assignment) {
+        $assignments->each(function ($assignment) {
             if ($assignment->completion_date) {
                 $assignment->days_remaining = Carbon::parse($assignment->completion_date)->diffInDays(Carbon::now(), false);
             }
@@ -496,10 +497,9 @@ class AssignmentController extends Controller
 
     public function getArtists()
     {
-        $artists = AssignmentArtist::select('name')
-            ->distinct()
+        $artists = Artist::select('id', 'name')
             ->orderBy('name')
-            ->pluck('name');
+            ->get();
 
         return response()->json($artists);
     }
