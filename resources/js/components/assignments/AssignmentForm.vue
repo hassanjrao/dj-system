@@ -9,7 +9,7 @@
             v-if="currentStep === 1"
             color="primary"
             small
-            :disabled="!step1Valid"
+            :disabled="loading"
             @click="goToNextStep"
             class="mr-2"
             >Next</v-btn
@@ -26,7 +26,7 @@
             v-if="currentStep === 2"
             color="primary"
             small
-            :disabled="!valid || loading"
+            :disabled="loading"
             :loading="loading"
             @click="submit"
             >Save</v-btn
@@ -47,6 +47,8 @@
                 :rules="[(v) => !!v || 'Department is required']"
                 @change="onDepartmentChange"
                 :search-input.sync="departmentSearch"
+                chips
+                small-chips
                 required
               ></v-autocomplete>
             </v-col>
@@ -60,6 +62,8 @@
                 :rules="[(v) => !!v || 'Client is required']"
                 @change="onClientChange"
                 :search-input.sync="clientSearch"
+                chips
+                small-chips
                 required
               >
                 <template v-slot:append-item>
@@ -81,7 +85,7 @@
           <!-- Assigned To (filtered by department) -->
           <v-row>
             <v-col cols="12" md="6">
-              <v-select
+              <v-autocomplete
                 v-model="formData.assigned_to_id"
                 :items="filteredUsers"
                 item-text="name"
@@ -89,8 +93,10 @@
                 label="Assignment Assigned To *"
                 :rules="[(v) => !!v || 'Assigned user is required']"
                 :loading="loadingUsers"
+                chips
+                small-chips
                 required
-              ></v-select>
+              ></v-autocomplete>
             </v-col>
           </v-row>
 
@@ -101,6 +107,7 @@
             :is-child="isChild"
             :parent-data="parentData"
             :lookup-data="lookupData"
+            :departments="departments"
             @update:modelValue="updateFormData"
           />
 
@@ -157,29 +164,71 @@
 
           <!-- Common fields -->
           <v-divider class="my-4"></v-divider>
+
+          <!-- Notes Section -->
           <v-row>
             <v-col cols="12">
-              <v-textarea
-                v-model="formData.notes_for_team"
-                label="Notes For Team"
-                rows="3"
-              ></v-textarea>
+              <v-subheader>Notes</v-subheader>
             </v-col>
           </v-row>
+          <v-row>
+            <v-col cols="12" md="8">
+              <v-text-field v-model="newNote.note" label="Note"></v-text-field>
+            </v-col>
+            <v-col cols="12" md="3">
+              <v-autocomplete
+                v-model="newNote.note_for"
+                :items="noteForOptions"
+                item-text="label"
+                item-value="value"
+                label="Note For"
+                chips
+                small-chips
+              ></v-autocomplete>
+            </v-col>
+            <v-col cols="12" md="1" class="d-flex align-center">
+              <v-btn
+                icon
+                color="primary"
+                @click="addNote"
+                :disabled="!newNote.note || !newNote.note_for"
+              >
+                <v-icon>mdi-plus</v-icon>
+              </v-btn>
+            </v-col>
+          </v-row>
+
+          <!-- Display Added Notes -->
+          <v-row v-if="formData.notes && formData.notes.length > 0">
+            <v-col cols="12">
+              <v-list>
+                <v-list-item
+                  v-for="(note, index) in formData.notes"
+                  :key="index"
+                  class="px-0"
+                  @click.stop
+                >
+                  <v-list-item-content @click.stop>
+                    <v-list-item-title>
+                      <strong>{{ getNoteForLabel(note.note_for) }}:</strong>
+                      {{ note.note }}
+                    </v-list-item-title>
+                  </v-list-item-content>
+                  <v-list-item-action @click.stop>
+                    <v-btn icon small color="error" @click.stop="removeNote(index)">
+                      <v-icon small>mdi-delete</v-icon>
+                    </v-btn>
+                  </v-list-item-action>
+                </v-list-item>
+              </v-list>
+            </v-col>
+          </v-row>
+
           <v-row>
             <v-col cols="12">
               <v-textarea
                 v-model="formData.reference_links"
                 label="Reference Links (one per line)"
-                rows="3"
-              ></v-textarea>
-            </v-col>
-          </v-row>
-          <v-row v-if="isAdmin">
-            <v-col cols="12">
-              <v-textarea
-                v-model="formData.notes_for_admin"
-                label="Notes For Me (Admin Only)"
                 rows="3"
               ></v-textarea>
             </v-col>
@@ -311,12 +360,21 @@ export default {
       videoFilmingDeptId: null,
       videoEditingDeptId: null,
       distributionDeptIds: [],
+      newNote: {
+        note: "",
+        note_for: null,
+      },
+      noteForOptions: [
+        { label: "Me", value: "me" },
+        { label: "Team", value: "team" },
+      ],
     };
   },
   mounted() {
     console.log("mountedddd", this.departments);
     this.initializeDepartmentIds();
     this.initializeClient();
+    this.initializeNotes();
     this.loadUsersForDepartment();
   },
   methods: {
@@ -434,16 +492,31 @@ export default {
       this.formData = { ...this.formData, ...newData };
       this.$emit("update:modelValue", this.formData);
     },
+    updateModel() {
+      this.$emit("update:modelValue", this.formData);
+    },
     submit() {
-      if (this.$refs.form.validate()) {
+      // Validate the form - this will highlight invalid fields
+      if (this.$refs.form && this.$refs.form.validate()) {
         this.loading = true;
 
-        const url = this.isEdit
-          ? `/assignments/${this.formData.id}`
-          : "/assignments";
+        // Prepare form data with notes array
+        const submitData = { ...this.formData };
+
+        // Ensure notes array exists and is properly formatted
+        if (!submitData.notes || !Array.isArray(submitData.notes)) {
+          submitData.notes = [];
+        }
+
+        // Filter out empty notes
+        submitData.notes = submitData.notes.filter(
+          (note) => note.note && note.note.trim()
+        );
+
+        const url = this.isEdit ? `/assignments/${this.formData.id}` : "/assignments";
         const method = this.isEdit ? "put" : "post";
 
-        axios[method](url, this.formData)
+        axios[method](url, submitData)
           .then((response) => {
             this.loading = false;
             window.location.href = "/assignments";
@@ -466,20 +539,75 @@ export default {
 
             alert(errorMessage);
           });
+      } else {
+        // Validation failed - fields are already highlighted by Vuetify
+        // Scroll to first invalid field
+        this.$nextTick(() => {
+          const firstError = this.$el.querySelector(".error--text");
+          if (firstError) {
+            firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        });
       }
     },
     cancel() {
       window.location.href = "/assignments";
     },
     goToNextStep() {
+      // Validate step 1 form - this will highlight invalid fields
       if (this.$refs.step1Form && this.$refs.step1Form.validate()) {
         this.currentStep = 2;
         // Load users for the selected department when moving to step 2
         this.loadUsersForDepartment();
+      } else {
+        // Validation failed - fields are already highlighted by Vuetify
+        // Scroll to first invalid field
+        this.$nextTick(() => {
+          const firstError = this.$el.querySelector(".error--text");
+          if (firstError) {
+            firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        });
       }
     },
     goToPreviousStep() {
       this.currentStep = 1;
+    },
+    initializeNotes() {
+      // Initialize notes array if not present
+      if (!this.formData.notes) {
+        this.formData.notes = [];
+      }
+    },
+    addNote() {
+      if (this.newNote.note && this.newNote.note.trim() && this.newNote.note_for) {
+        if (!this.formData.notes) {
+          this.formData.notes = [];
+        }
+        this.formData.notes.push({
+          note: this.newNote.note.trim(),
+          note_for: this.newNote.note_for,
+        });
+        // Reset new note fields
+        this.newNote = {
+          note: "",
+          note_for: null,
+        };
+        this.updateModel();
+      }
+    },
+
+    removeNote(index) {
+      if (this.formData.notes && this.formData.notes.length > index) {
+        this.formData.notes.splice(index, 1);
+        this.$nextTick(() => {
+          this.updateModel();
+        });
+      }
+    },
+    getNoteForLabel(value) {
+      const option = this.noteForOptions.find((opt) => opt.value === value);
+      return option ? option.label : value;
     },
   },
   watch: {
@@ -487,6 +615,7 @@ export default {
       handler(newVal) {
         this.formData = { ...newVal };
         this.initializeClient();
+        this.initializeNotes();
       },
       deep: true,
     },

@@ -10,6 +10,7 @@ use App\Models\Deliverable;
 use App\Models\AssignmentArtist;
 use App\Models\Artist;
 use App\Models\AssignmentRelationship;
+use App\Models\Note;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -103,11 +104,22 @@ class AssignmentController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'artists'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'artists', 'notes.creator'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
         }
+
+        // Convert artists relationship to IDs array for frontend
+        $assignment->artists = $assignment->artists->pluck('id')->toArray();
+
+        // Convert notes to array format for frontend
+        $assignment->notes = $assignment->notes->map(function ($note) {
+            return [
+                'note' => $note->note,
+                'note_for' => $note->note_for,
+            ];
+        })->toArray();
 
         $departments = Department::all();
         $clients = \App\Models\Client::orderBy('name')->get();
@@ -128,23 +140,6 @@ class AssignmentController extends Controller
 
     public function store(Request $request)
     {
-        $user = Auth::user();
-
-        // Check permissions
-        if (!$user->hasRole('super-admin') && !$user->hasRole('admin')) {
-            if ($user->hasRole('view-all-edit-assigned')) {
-                // Check if user can edit this department (user must belong to the department)
-                $deptId = $request->department_id;
-                $userDepartmentIds = $user->departments()->pluck('departments.id');
-                if (!$userDepartmentIds->contains($deptId)) {
-                    return response()->json(['error' => 'Unauthorized'], 403);
-                }
-            } else {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
-        }
-
-        // Base validation
         $validated = $request->validate([
             'client_id' => 'nullable|exists:clients,id',
             'department_id' => 'required|exists:departments,id',
@@ -153,11 +148,12 @@ class AssignmentController extends Controller
             'completion_date' => 'nullable|date',
             'release_date' => 'nullable|date',
             'release_timing' => 'nullable|in:pre-release,post-release,other',
-            'notes_for_team' => 'nullable|string',
             'reference_links' => 'nullable|string',
-            'notes_for_admin' => 'nullable|string',
             'status' => 'nullable|in:pending,in-progress,completed,on-hold',
             'parent_assignment_id' => 'nullable|exists:assignments,id',
+            'notes' => 'nullable|array',
+            'notes.*.note' => 'required|string',
+            'notes.*.note_for' => 'required|in:me,team,admin',
             'linked_song_assignment_id' => 'nullable|exists:assignments,id',
             'child_departments' => 'nullable|array', // For creating child assignments
         ]);
@@ -177,7 +173,7 @@ class AssignmentController extends Controller
                 'music_creation_status_id' => 'nullable|exists:music_creation_statuses,id',
                 'release_date' => 'required|date',
                 'artists' => 'nullable|array',
-                'artists.*' => 'string|max:255',
+                'artists.*' => 'exists:artists,id',
             ]));
         } elseif ($department->slug === 'music-mastering') {
             $validated = array_merge($validated, $request->validate([
@@ -225,17 +221,15 @@ class AssignmentController extends Controller
             }
         }
 
+
         // Create assignment
         $assignment = Assignment::create($validated);
 
-        // Handle artists
+        // Handle artists (now using IDs)
         if ($request->has('artists') && is_array($request->artists)) {
-            foreach ($request->artists as $artistName) {
-                if (!empty(trim($artistName))) {
-                    AssignmentArtist::firstOrCreate([
-                        'assignment_id' => $assignment->id,
-                        'artist_name' => trim($artistName),
-                    ]);
+            foreach ($request->artists as $artistId) {
+                if (!empty($artistId)) {
+                    $assignment->artists()->attach($artistId);
                 }
             }
         }
@@ -257,10 +251,26 @@ class AssignmentController extends Controller
             }
         }
 
+        // Handle notes
+        if ($request->has('notes') && is_array($request->notes)) {
+            foreach ($request->notes as $noteData) {
+                if (!empty(trim($noteData['note']))) {
+                    Note::create([
+                        'assignment_id' => $assignment->id,
+                        'note' => trim($noteData['note']),
+                        'created_by' => Auth::id(),
+                        'note_for' => $noteData['note_for'],
+                    ]);
+                }
+            }
+        }
+
+        dd($assignment);
+
         return response()->json($assignment->load([
             'client', 'department', 'assignedTo', 'album',
             'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
-            'editType', 'footageType', 'deliverables', 'artists'
+            'editType', 'footageType', 'deliverables', 'artists', 'notes'
         ]), 201);
     }
 
@@ -338,18 +348,12 @@ class AssignmentController extends Controller
 
         $assignment->update($validated);
 
-        // Handle artists
+        // Handle artists (now using IDs)
         if ($request->has('artists')) {
-            $assignment->artists()->delete();
             if (is_array($request->artists)) {
-                foreach ($request->artists as $artistName) {
-                    if (!empty(trim($artistName))) {
-                        AssignmentArtist::create([
-                            'assignment_id' => $assignment->id,
-                            'artist_name' => trim($artistName),
-                        ]);
-                    }
-                }
+                $assignment->artists()->sync($request->artists);
+            } else {
+                $assignment->artists()->detach();
             }
         }
 
@@ -358,10 +362,24 @@ class AssignmentController extends Controller
             $assignment->deliverables()->sync($request->deliverables);
         }
 
+        // Handle notes
+        if ($request->has('notes') && is_array($request->notes)) {
+            foreach ($request->notes as $noteData) {
+                if (!empty(trim($noteData['note']))) {
+                    Note::create([
+                        'assignment_id' => $assignment->id,
+                        'note' => trim($noteData['note']),
+                        'created_by' => Auth::id(),
+                        'note_for' => $noteData['note_for'],
+                    ]);
+                }
+            }
+        }
+
         return response()->json($assignment->load([
             'client', 'department', 'assignedTo', 'album',
             'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
-            'editType', 'footageType', 'deliverables', 'artists'
+            'editType', 'footageType', 'deliverables', 'artists', 'notes.creator'
         ]));
     }
 
@@ -416,8 +434,6 @@ class AssignmentController extends Controller
 
     private function populateChildAssignment($parentAssignment, $childDepartmentId)
     {
-        $childDept = Department::findOrFail($childDepartmentId);
-
         $childData = [
             'client_id' => $parentAssignment->client_id,
             'department_id' => $childDepartmentId,
@@ -502,6 +518,19 @@ class AssignmentController extends Controller
             ->get();
 
         return response()->json($artists);
+    }
+
+    public function storeArtist(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:artists,name',
+        ]);
+
+        $artist = Artist::create([
+            'name' => $validated['name'],
+        ]);
+
+        return response()->json($artist, 201);
     }
 
     public function getAvailableSongs($id)

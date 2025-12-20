@@ -17,9 +17,7 @@ class Assignment extends Model
         'completion_date',
         'release_date',
         'release_timing',
-        'notes_for_team',
         'reference_links',
-        'notes_for_admin',
         'status',
         'music_type_id',
         'song_name',
@@ -121,6 +119,11 @@ class Assignment extends Model
     public function assignmentArtists()
     {
         return $this->hasMany(AssignmentArtist::class);
+    }
+
+    public function notes()
+    {
+        return $this->hasMany(Note::class);
     }
 
     public function parentRelationships()

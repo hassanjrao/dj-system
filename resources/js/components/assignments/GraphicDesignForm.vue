@@ -17,16 +17,18 @@
 
     <!-- Parent Assignment Selection (if child) -->
     <template v-if="!isStandalone">
-      <v-select
+      <v-autocomplete
         v-model="selectedParentDepartment"
         :items="parentDepartments"
         item-text="name"
         item-value="id"
         label="Select Parent Department"
+        chips
+        small-chips
         @change="onParentDepartmentChange"
-      ></v-select>
+      ></v-autocomplete>
 
-      <v-select
+      <v-autocomplete
         v-if="selectedParentDepartment"
         v-model="localData.parent_assignment_id"
         :items="filteredParentAssignments"
@@ -34,22 +36,26 @@
         item-value="id"
         label="Select Parent Assignment *"
         :rules="[(v) => !!v || 'Parent assignment is required']"
+        chips
+        small-chips
         required
         @change="onParentAssignmentSelected"
-      ></v-select>
+      ></v-autocomplete>
     </template>
 
     <!-- Release Timing -->
-    <v-select
+    <v-autocomplete
       v-model="localData.release_timing"
       :items="releaseTimings"
       item-text="name"
       item-value="value"
       label="Release Timing *"
       :rules="[(v) => !!v || 'Release timing is required']"
+      chips
+      small-chips
       required
       @change="onReleaseTimingChange"
-    ></v-select>
+    ></v-autocomplete>
 
     <!-- Completion Date -->
     <v-text-field
@@ -98,7 +104,7 @@
     <!-- Link Child Assignments (if this is a parent) -->
     <v-divider v-if="!isChild" class="my-4"></v-divider>
     <v-subheader v-if="!isChild">Link Child Assignments (Optional)</v-subheader>
-    <v-select
+    <v-autocomplete
       v-if="!isChild"
       v-model="localData.child_assignment_types"
       :items="availableChildDepartments"
@@ -107,7 +113,8 @@
       label="Select departments for child assignments"
       multiple
       chips
-    ></v-select>
+      small-chips
+    ></v-autocomplete>
   </div>
 </template>
 

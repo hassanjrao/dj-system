@@ -7,7 +7,7 @@
     </v-radio-group>
 
     <!-- Song Selection (if standalone) -->
-    <v-select
+    <v-autocomplete
       v-if="isStandalone"
       v-model="localData.linked_song_assignment_id"
       :items="availableSongs"
@@ -15,9 +15,11 @@
       item-value="id"
       label="What Song *"
       :rules="[(v) => !!v || 'Song selection is required']"
+      chips
+      small-chips
       required
       @change="onSongSelected"
-    ></v-select>
+    ></v-autocomplete>
 
     <!-- Song Name (auto-populated) -->
     <v-text-field

@@ -13,6 +13,8 @@
           item-value="id"
           label="Music Type *"
           :rules="[(v) => !!v || 'Music type is required']"
+          chips
+          small-chips
           required
         ></v-autocomplete>
 
@@ -38,6 +40,8 @@
           item-value="id"
           label="Album"
           clearable
+          chips
+          small-chips
         >
           <template v-slot:append-item>
             <v-list-item @click="showAlbumDialog = true">
@@ -52,13 +56,23 @@
         <v-autocomplete
           v-model="localData.artists"
           :items="artistSuggestions"
+          item-text="name"
+          item-value="id"
           label="Artist(s) *"
           multiple
           chips
+          small-chips
           :rules="[(v) => (v && v.length > 0) || 'At least one artist is required']"
-          @input="onArtistsInput"
           required
-        ></v-autocomplete>
+        >
+          <template v-slot:append-item>
+            <v-list-item @click="showArtistDialog = true">
+              <v-list-item-content>
+                <v-list-item-title>+ Create New Artist</v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
+          </template>
+        </v-autocomplete>
       </v-col>
 
       <!-- Right Column -->
@@ -80,6 +94,8 @@
           item-value="id"
           label="Key"
           clearable
+          chips
+          small-chips
         ></v-autocomplete>
 
         <!-- Genre -->
@@ -90,6 +106,8 @@
           item-value="id"
           label="Genre"
           clearable
+          chips
+          small-chips
         ></v-autocomplete>
 
         <!-- Release Date -->
@@ -125,6 +143,8 @@
           item-value="id"
           label="Creation Status"
           clearable
+          chips
+          small-chips
         ></v-autocomplete>
       </v-col>
     </v-row>
@@ -135,13 +155,15 @@
     <v-row>
       <v-col cols="12">
         <v-autocomplete
-          v-model="localData.child_assignment_types"
+          v-model="localData.child_departments"
           :items="availableChildDepartments"
           item-text="name"
           item-value="id"
           label="Select departments for child assignments"
           multiple
           chips
+          small-chips
+          :loading="loadingChildDepartments"
         ></v-autocomplete>
       </v-col>
     </v-row>
@@ -164,6 +186,25 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Artist Creation Dialog -->
+    <v-dialog v-model="showArtistDialog" max-width="500">
+      <v-card>
+        <v-card-title>Create New Artist</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="newArtistName"
+            label="Artist Name *"
+            :rules="[(v) => !!v || 'Artist name is required']"
+            required
+          ></v-text-field>
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn text small @click="closeArtistDialog" class="mr-2">Cancel</v-btn>
+          <v-btn color="primary" small @click="createArtist">Create</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -178,6 +219,10 @@ export default {
     lookupData: {
       type: Object,
       default: () => ({}),
+    },
+    departments: {
+      type: Array,
+      default: () => [],
     },
     isChild: {
       type: Boolean,
@@ -195,26 +240,16 @@ export default {
       showAlbumDialog: false,
       newAlbumName: "",
       albums: [],
+      showArtistDialog: false,
+      newArtistName: "",
+      availableChildDepartments: [],
+      loadingChildDepartments: false,
     };
-  },
-  computed: {
-    availableChildDepartments() {
-      // Departments that can be child assignments of Music Creation
-      return [
-        { id: "music_mastering", name: "Music Mastering" },
-        { id: "graphic_design", name: "Graphic Design" },
-        { id: "video_filming", name: "Video Filming" },
-        { id: "video_editing", name: "Video Editing" },
-        { id: "distribution_video", name: "Distribution - Video" },
-        { id: "distribution_graphic", name: "Distribution - Graphic" },
-        { id: "distribution_music", name: "Distribution - Music" },
-        { id: "marketing", name: "Marketing" },
-      ];
-    },
   },
   mounted() {
     this.loadAlbums();
     this.loadArtistSuggestions();
+    this.loadChildDepartments();
     if (this.parentData) {
       this.populateFromParent();
     }
@@ -243,7 +278,7 @@ export default {
     loadAlbums() {
       // Load albums from API
       axios
-        .get("/api/albums")
+        .get("/albums")
         .then((response) => {
           this.albums = response.data;
         })
@@ -254,20 +289,71 @@ export default {
     loadArtistSuggestions() {
       // Load existing artists for autocomplete
       axios
-        .get("/api/artists")
+        .get("/artists")
         .then((response) => {
-          // Extract artist names from the response
-          this.artistSuggestions = response.data.map((artist) => artist.name || artist);
+          // Keep full artist objects with id and name
+          this.artistSuggestions = response.data;
         })
         .catch((error) => {
           console.error("Error loading artists:", error);
         });
     },
+    loadChildDepartments() {
+      // Load child departments from backend based on parent department
+      // Since this is Music Creation form, we know the parent is Music Creation
+      this.loadingChildDepartments = true;
+      axios
+        .get("/lookup/child-departments", {
+          params: {
+            department_slug: "music-creation",
+          },
+        })
+        .then((response) => {
+          this.availableChildDepartments = response.data.map((dept) => ({
+            id: dept.id,
+            name: dept.name,
+          }));
+          this.loadingChildDepartments = false;
+        })
+        .catch((error) => {
+          console.error("Error loading child departments:", error);
+          this.loadingChildDepartments = false;
+        });
+    },
+    createArtist() {
+      if (!this.newArtistName) return;
+
+      axios
+        .post("/artists", { name: this.newArtistName })
+        .then((response) => {
+          // Add new artist to suggestions (full object with id and name)
+          this.artistSuggestions.push(response.data);
+          // Add to selected artists (using ID)
+          if (!this.localData.artists) {
+            this.localData.artists = [];
+          }
+          this.localData.artists.push(response.data.id);
+          this.showArtistDialog = false;
+          this.newArtistName = "";
+          this.updateModel();
+        })
+        .catch((error) => {
+          console.error("Error creating artist:", error);
+          if (error.response && error.response.data && error.response.data.message) {
+            alert(error.response.data.message);
+          }
+        });
+    },
+    closeArtistDialog() {
+      this.showArtistDialog = false;
+      this.newArtistName = "";
+    },
     createAlbum() {
+      console.log("createAlbum", this.newAlbumName);
       if (!this.newAlbumName) return;
 
       axios
-        .post("albums", { name: this.newAlbumName })
+        .post("/albums", { name: this.newAlbumName })
         .then((response) => {
           this.albums.push(response.data);
           this.localData.album_id = response.data.id;
