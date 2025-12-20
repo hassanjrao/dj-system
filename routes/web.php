@@ -20,6 +20,7 @@ Auth::routes();
 Route::middleware(['auth'])->group(function () {
 
     // Assignment routes
+    Route::get('assignments/get-assignments', 'App\Http\Controllers\AssignmentController@getAssignments');
     Route::get('assignments/create', 'App\Http\Controllers\AssignmentController@create')->name('assignments.create');
     Route::get('assignments', 'App\Http\Controllers\AssignmentController@index')->name('assignments.index');
     Route::post('assignments', 'App\Http\Controllers\AssignmentController@store');

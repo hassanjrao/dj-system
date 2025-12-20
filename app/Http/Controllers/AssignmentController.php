@@ -11,6 +11,7 @@ use App\Models\AssignmentArtist;
 use App\Models\Artist;
 use App\Models\AssignmentRelationship;
 use App\Models\Note;
+use App\Models\AssignmentStatus;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -18,68 +19,9 @@ class AssignmentController extends Controller
 {
     public function index(Request $request)
     {
-        $user = Auth::user();
-        $query = Assignment::with([
-            'client', 'department', 'assignedTo', 'album',
-            'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
-            'editType', 'footageType', 'deliverables', 'artists'
-        ]);
-
-        // Permission-based filtering
-        if ($user->hasRole('super-admin') || $user->hasRole('admin')) {
-            // Full access
-        } elseif ($user->hasRole('view-all-edit-assigned') || $user->hasRole('view-all-update-assigned')) {
-            // Hide Music Creation department
-            $musicCreationDept = Department::where('slug', 'music-creation')->first();
-            if ($musicCreationDept) {
-                $query->where('department_id', '!=', $musicCreationDept->id);
-            }
-        } else {
-            // Only user's departments (many-to-many)
-            $userDepartmentIds = $user->departments()->pluck('departments.id');
-            if ($userDepartmentIds->isNotEmpty()) {
-                $query->whereIn('department_id', $userDepartmentIds);
-            } else {
-                $assignments = collect([]);
-                return view('assignments.index', compact('assignments'));
-            }
-        }
-
-        // Filter by department
-        if ($request->has('department_id')) {
-            $query->where('department_id', $request->department_id);
-        }
-
-        // Filter by status
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
-
-        // Show unfinished deliverables
-        if ($request->has('unfinished') && $request->unfinished) {
-            $query->whereHas('deliverables', function ($q) {
-                $q->where('assignment_deliverables.status', '!=', 'completed');
-            });
-        }
-
-        // Order by completion date
-        $query->orderBy('completion_date', 'asc');
-
-        $assignments = $query->get();
-
-        // Add days remaining
-        $assignments->each(function ($assignment) {
-            if ($assignment->completion_date) {
-                $assignment->days_remaining = Carbon::parse($assignment->completion_date)->diffInDays(Carbon::now(), false);
-            }
-        });
-
-        // Return JSON for API requests, view for web requests
-        if ($request->wantsJson() || $request->expectsJson()) {
-            return response()->json($assignments);
-        }
-
-        return view('assignments.index', compact('assignments'));
+        $departmentId = $request->get('department_id');
+        $department = Department::findOrFail($departmentId);
+        return view('assignments.index', compact('departmentId'));
     }
 
     public function create()
@@ -104,7 +46,7 @@ class AssignmentController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'artists', 'notes.creator'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'artists', 'notes.creator', 'status'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
@@ -149,7 +91,7 @@ class AssignmentController extends Controller
             'release_date' => 'nullable|date',
             'release_timing' => 'nullable|in:pre-release,post-release,other',
             'reference_links' => 'nullable|string',
-            'status' => 'nullable|in:pending,in-progress,completed,on-hold',
+            'assignment_status' => 'nullable|exists:assignment_statuses,code',
             'parent_assignment_id' => 'nullable|exists:assignments,id',
             'notes' => 'nullable|array',
             'notes.*.note' => 'required|string',
@@ -221,6 +163,13 @@ class AssignmentController extends Controller
             }
         }
 
+        // Set default assignment_status if not provided
+        if (!isset($validated['assignment_status'])) {
+            $defaultStatus = AssignmentStatus::where('code', 'pending')->first();
+            if ($defaultStatus) {
+                $validated['assignment_status'] = $defaultStatus->code;
+            }
+        }
 
         // Create assignment
         $assignment = Assignment::create($validated);
@@ -270,7 +219,7 @@ class AssignmentController extends Controller
         return response()->json($assignment->load([
             'client', 'department', 'assignedTo', 'album',
             'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
-            'editType', 'footageType', 'deliverables', 'artists', 'notes'
+            'editType', 'footageType', 'deliverables', 'artists', 'notes', 'status'
         ]), 201);
     }
 
@@ -281,7 +230,7 @@ class AssignmentController extends Controller
             'client', 'department', 'assignedTo', 'album',
             'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
             'editType', 'footageType', 'deliverables', 'artists',
-            'parentAssignment', 'childAssignments', 'linkedSongAssignment'
+            'parentAssignment', 'childAssignments', 'linkedSongAssignment', 'status'
         ])->findOrFail($id);
 
         // Check permissions
@@ -320,7 +269,7 @@ class AssignmentController extends Controller
             'notes_for_team' => 'nullable|string',
             'reference_links' => 'nullable|string',
             'notes_for_admin' => 'nullable|string',
-            'status' => 'nullable|in:pending,in-progress,completed,on-hold',
+            'assignment_status' => 'nullable|exists:assignment_statuses,code',
         ]);
 
         // Department-specific validation
@@ -379,7 +328,7 @@ class AssignmentController extends Controller
         return response()->json($assignment->load([
             'client', 'department', 'assignedTo', 'album',
             'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
-            'editType', 'footageType', 'deliverables', 'artists', 'notes.creator'
+            'editType', 'footageType', 'deliverables', 'artists', 'notes.creator', 'status'
         ]));
     }
 
@@ -438,7 +387,7 @@ class AssignmentController extends Controller
             'client_id' => $parentAssignment->client_id,
             'department_id' => $childDepartmentId,
             'parent_assignment_id' => $parentAssignment->id,
-            'status' => 'pending',
+            'assignment_status' => 'pending',
         ];
 
         // Auto-populate based on parent
@@ -561,6 +510,112 @@ class AssignmentController extends Controller
 
         return response()->json([
             'days_before_release' => 7 // Default
+        ]);
+    }
+
+    public function getAssignments(Request $request)
+    {
+        $request->validate([
+            'department_id' => 'required|exists:departments,id',
+            'status' => 'required|in:all,active,completed', // This is for filtering, not the assignment_status field
+            'client_id' => 'nullable|exists:clients,id',
+            'search' => 'nullable|string|max:255',
+        ]);
+
+        $user = Auth::user();
+        $departmentId = $request->get('department_id');
+        $status = $request->get('status'); // 'active' or 'completed'
+        $clientId = $request->get('client_id');
+        $search = $request->get('search');
+
+        // Base query for all assignments in department (for counts)
+        $baseQuery = Assignment::where('department_id', $departmentId);
+
+        $activeStatusCodes = AssignmentStatus::whereIn('code', ['pending', 'in-progress', 'on-hold'])->pluck('code')->toArray();
+
+        // Calculate counts for all assignments in department
+        $today = Carbon::today();
+        $allAssignments = $baseQuery->get();
+        $activeCount = 0;
+        $overdueCount = 0;
+        $completedCount = 0;
+
+        foreach ($allAssignments as $assignment) {
+            if ($assignment->assignment_status === 'completed') {
+                $completedCount++;
+            } elseif (in_array($assignment->assignment_status, $activeStatusCodes)) {
+                $activeCount++;
+                if ($assignment->completion_date) {
+                    $daysRemaining = $today->diffInDays($assignment->completion_date, false);
+                    if ($daysRemaining < 0) {
+                        $overdueCount++;
+                    }
+                }
+            }
+        }
+
+        // Query for filtered assignments
+        $query = Assignment::with([
+            'client', 'department', 'assignedTo', 'album', 'deliverables', 'status'
+        ])->where('department_id', $departmentId);
+
+        // Filter by status
+        if ($status === 'active') {
+            $query->whereIn('assignment_status', $activeStatusCodes);
+        } elseif ($status === 'completed') {
+            $query->where('assignment_status', 'completed');
+        }
+        // If status is 'all', don't filter by status (show all assignments)
+
+        // Filter by client(s)
+        if ($clientId) {
+            if (is_array($clientId)) {
+                $query->whereIn('client_id', $clientId);
+            } else {
+                $query->where('client_id', $clientId);
+            }
+        }
+
+        // Generic search
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('song_name', 'like', "%{$search}%")
+                  ->orWhere('assignment_name', 'like', "%{$search}%")
+                  ->orWhereHas('client', function ($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // Order by completion date (due date)
+        $query->orderBy('completion_date', 'asc');
+
+        $assignments = $query->get();
+
+        // Calculate days remaining for each assignment
+        $assignments = $assignments->map(function ($assignment) use ($today) {
+            $assignment->assignment_display_name = $assignment->song_name ?: $assignment->assignment_name;
+
+            if ($assignment->completion_date) {
+                $daysRemaining = $today->diffInDays($assignment->completion_date, false);
+                $assignment->days_remaining = $daysRemaining;
+            } else {
+                $assignment->days_remaining = null;
+            }
+
+            // Ensure assignment_status is available (use code if status relationship is loaded)
+            if ($assignment->status && isset($assignment->status->code)) {
+                $assignment->assignment_status = $assignment->status->code;
+            }
+
+            return $assignment;
+        });
+
+        return response()->json([
+            'data' => $assignments,
+            'active_count' => $activeCount,
+            'overdue_count' => $overdueCount,
+            'completed_count' => $completedCount
         ]);
     }
 }

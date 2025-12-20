@@ -291,7 +291,8 @@
                                         @foreach ($departments as $department)
                                             <li class="nav-main-item">
                                                 <a class="nav-main-link{{ request()->is('assignments') && request()->get('department_id') == $department->id ? ' active' : '' }}"
-                                                    href="{{ route('assignments.index', ['department_id' => $department->id]) }}">
+                                                    href="{{ route('assignments.index', ['department_id' => $department->id]) }}"
+                                                    style="{{ request()->is('assignments') && request()->get('department_id') == $department->id ? 'color: red !important;' : '' }}">
                                                     <span class="nav-main-link-name">{{ $department->name }}</span>
                                                 </a>
                                             </li>
