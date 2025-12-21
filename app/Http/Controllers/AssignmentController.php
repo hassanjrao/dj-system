@@ -217,8 +217,6 @@ class AssignmentController extends Controller
             }
         }
 
-        dd($assignment);
-
         return response()->json($assignment->load([
             'client', 'department', 'assignedTo', 'album',
             'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
@@ -390,6 +388,7 @@ class AssignmentController extends Controller
             'client_id' => $parentAssignment->client_id,
             'department_id' => $childDepartmentId,
             'parent_assignment_id' => $parentAssignment->id,
+            'created_by' => $parentAssignment->created_by,
             'assignment_status' => 'pending',
         ];
 

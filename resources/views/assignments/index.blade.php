@@ -1,5 +1,5 @@
 @extends('layouts.backend')
-
+@section('page-name', 'Assignments')
 @section('css_after')
     <link href="{{ mix('/css/vuetify.css') }}" rel="stylesheet">
 @endsection
