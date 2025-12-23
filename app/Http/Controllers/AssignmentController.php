@@ -7,8 +7,8 @@ use App\Models\Assignment;
 use App\Models\Department;
 use App\Models\MusicTypeCompletionDay;
 use App\Models\Deliverable;
-use App\Models\AssignmentArtist;
 use App\Models\Artist;
+use App\Models\Song;
 use App\Models\AssignmentRelationship;
 use App\Models\Note;
 use App\Models\AssignmentStatus;
@@ -46,14 +46,18 @@ class AssignmentController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'artists', 'notes.creator', 'status'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'status'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
         }
 
-        // Convert artists relationship to IDs array for frontend
-        $assignment->artists = $assignment->artists->pluck('id')->toArray();
+        // Convert song artists to IDs array for frontend (if song exists)
+        if ($assignment->song) {
+            $assignment->song_artists = $assignment->song->artists->pluck('id')->toArray();
+        } else {
+            $assignment->song_artists = [];
+        }
 
         // Convert notes to array format for frontend
         $assignment->notes = $assignment->notes->map(function ($note) {
@@ -105,38 +109,55 @@ class AssignmentController extends Controller
 
         if ($department->slug === 'music-creation') {
             $validated = array_merge($validated, $request->validate([
-                'music_type_id' => 'required|exists:music_types,id',
-                'song_name' => 'required|string|max:255',
-                'version_name' => 'nullable|string|max:255',
-                'album_id' => 'nullable|exists:albums,id',
-                'bpm' => 'nullable|integer|min:1|max:999',
-                'music_key_id' => 'nullable|exists:music_keys,id',
-                'music_genre_id' => 'nullable|exists:music_genres,id',
+                'song_id' => 'nullable|exists:songs,id',
                 'music_creation_status_id' => 'nullable|exists:music_creation_statuses,id',
-                'release_date' => 'required|date',
-                'artists' => 'nullable|array',
-                'artists.*' => 'exists:artists,id',
+                'release_date' => 'nullable|date',
+                // Song creation fields (if creating new song)
+                'song_name' => 'nullable|string|max:255',
+                'song_version' => 'nullable|string|max:255',
+                'song_album_id' => 'nullable|exists:albums,id',
+                'song_music_type_id' => 'nullable|exists:music_types,id',
+                'song_music_genre_id' => 'nullable|exists:music_genres,id',
+                'song_bpm' => 'nullable|integer|min:1|max:999',
+                'song_music_key_id' => 'nullable|exists:music_keys,id',
+                'song_release_date' => 'nullable|date',
+                'song_completion_date' => 'nullable|date',
+                'song_artists' => 'nullable|array',
+                'song_artists.*' => 'exists:artists,id',
             ]));
         } elseif ($department->slug === 'music-mastering') {
             $validated = array_merge($validated, $request->validate([
-                'linked_song_assignment_id' => 'required|exists:assignments,id',
+                'song_id' => 'nullable|exists:songs,id',
                 'deliverables' => 'nullable|array',
                 'deliverables.*' => 'exists:deliverables,id',
             ]));
 
-            // Auto-populate from linked song
-            $linkedSong = Assignment::findOrFail($request->linked_song_assignment_id);
-            $validated['song_name'] = $linkedSong->song_name;
-            $validated['release_date'] = $linkedSong->release_date;
-            $validated['music_type_id'] = $linkedSong->music_type_id;
+            // For child assignments, auto-populate from parent
+            if ($request->parent_assignment_id) {
+                $parent = Assignment::findOrFail($request->parent_assignment_id);
+                if ($parent->song_id) {
+                    $validated['song_id'] = $parent->song_id;
+                }
+                if ($parent->song && !$request->release_date) {
+                    $validated['release_date'] = $parent->song->release_date;
+                }
+            } else {
+                // For standalone assignments, require song_id
+                if (!$request->song_id) {
+                    return response()->json(['error' => 'Song selection is required for standalone Music Mastering assignments'], 422);
+                }
+            }
 
-            // Calculate completion date
-            if (!$request->completion_date) {
-                $validated['completion_date'] = $this->calculateCompletionDate(
-                    $linkedSong->music_type_id,
-                    $request->department_id,
-                    $linkedSong->release_date
-                );
+            // Calculate completion date if song exists
+            if (isset($validated['song_id'])) {
+                $song = Song::findOrFail($validated['song_id']);
+                if ($song->music_type_id && $song->release_date && !$request->completion_date) {
+                    $validated['completion_date'] = $this->calculateCompletionDate(
+                        $song->music_type_id,
+                        $request->department_id,
+                        $song->release_date
+                    );
+                }
             }
         } elseif ($department->slug === 'video-editing') {
             $validated = array_merge($validated, $request->validate([
@@ -150,16 +171,45 @@ class AssignmentController extends Controller
         // Handle parent assignment
         if ($request->parent_assignment_id) {
             $validated['parent_assignment_id'] = $request->parent_assignment_id;
-            // Auto-populate from parent if needed
+            // Auto-populate song_id from parent if needed
             $parent = Assignment::findOrFail($request->parent_assignment_id);
-            if (!$request->song_name && $parent->song_name) {
-                $validated['song_name'] = $parent->song_name;
+            if (!$request->song_id && $parent->song_id) {
+                $validated['song_id'] = $parent->song_id;
             }
-            if (!$request->release_date && $parent->release_date) {
-                $validated['release_date'] = $parent->release_date;
+            if ($parent->song && !$request->release_date) {
+                $validated['release_date'] = $parent->song->release_date;
             }
-            if (!$request->music_type_id && $parent->music_type_id) {
-                $validated['music_type_id'] = $parent->music_type_id;
+        }
+
+        // Handle song creation/selection for Music Creation
+        if ($department->slug === 'music-creation') {
+            if ($request->song_id) {
+                // Use existing song
+                $validated['song_id'] = $request->song_id;
+            } elseif ($request->song_name) {
+                // Create new song
+                $songData = [
+                    'name' => $request->song_name,
+                    'version' => $request->song_version,
+                    'album_id' => $request->song_album_id,
+                    'music_type_id' => $request->song_music_type_id,
+                    'music_genre_id' => $request->song_music_genre_id,
+                    'bpm' => $request->song_bpm,
+                    'music_key_id' => $request->song_music_key_id,
+                    'release_date' => $request->song_release_date ?: $request->release_date,
+                    'completion_date' => $request->song_completion_date,
+                ];
+                $song = Song::create(array_filter($songData));
+                $validated['song_id'] = $song->id;
+
+                // Handle song artists
+                if ($request->has('song_artists') && is_array($request->song_artists)) {
+                    foreach ($request->song_artists as $artistId) {
+                        if (!empty($artistId)) {
+                            $song->artists()->attach($artistId);
+                        }
+                    }
+                }
             }
         }
 
@@ -177,19 +227,14 @@ class AssignmentController extends Controller
         // Create assignment
         $assignment = Assignment::create($validated);
 
-        // Handle artists (now using IDs)
-        if ($request->has('artists') && is_array($request->artists)) {
-            foreach ($request->artists as $artistId) {
-                if (!empty($artistId)) {
-                    $assignment->artists()->attach($artistId);
-                }
-            }
-        }
-
         // Handle deliverables
         if ($request->has('deliverables') && is_array($request->deliverables)) {
+            $musicTypeId = null;
+            if ($assignment->song && $assignment->song->music_type_id) {
+                $musicTypeId = $assignment->song->music_type_id;
+            }
             $deliverableIds = $this->preSelectDeliverables(
-                $request->music_type_id ?? $assignment->music_type_id,
+                $musicTypeId,
                 $request->department_id,
                 $request->deliverables
             );
@@ -197,9 +242,19 @@ class AssignmentController extends Controller
         }
 
         // Create child assignments if specified
+        $childAssignments = [];
         if ($request->has('child_departments') && is_array($request->child_departments)) {
             foreach ($request->child_departments as $childDeptId) {
-                $this->populateChildAssignment($assignment, $childDeptId);
+                $childAssignment = $this->populateChildAssignment($assignment, $childDeptId);
+                $childAssignments[] = [
+                    'id' => $childAssignment->id,
+                    'department_id' => $childAssignment->department_id,
+                    'department' => [
+                        'id' => $childAssignment->department->id,
+                        'name' => $childAssignment->department->name,
+                        'slug' => $childAssignment->department->slug,
+                    ],
+                ];
             }
         }
 
@@ -217,21 +272,26 @@ class AssignmentController extends Controller
             }
         }
 
-        return response()->json($assignment->load([
-            'client', 'department', 'assignedTo', 'album',
-            'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
-            'editType', 'footageType', 'deliverables', 'artists', 'notes', 'status'
-        ]), 201);
+        $response = $assignment->load([
+            'client', 'department', 'assignedTo', 'song.artists',
+            'musicCreationStatus', 'editType', 'footageType', 'deliverables', 'notes', 'status'
+        ]);
+
+        // Add child_assignments to response if any were created
+        if (!empty($childAssignments)) {
+            $response->child_assignments = $childAssignments;
+        }
+
+        return response()->json($response, 201);
     }
 
     public function show($id)
     {
         $user = Auth::user();
         $assignment = Assignment::with([
-            'client', 'department', 'assignedTo', 'album',
-            'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
-            'editType', 'footageType', 'deliverables', 'artists',
-            'parentAssignment', 'childAssignments', 'linkedSongAssignment', 'status'
+            'client', 'department', 'assignedTo', 'song.artists',
+            'musicCreationStatus', 'editType', 'footageType', 'deliverables',
+            'parentAssignment', 'childAssignments', 'status'
         ])->findOrFail($id);
 
         // Check permissions
@@ -278,16 +338,8 @@ class AssignmentController extends Controller
 
         if ($department->slug === 'music-creation') {
             $validated = array_merge($validated, $request->validate([
-                'music_type_id' => 'nullable|exists:music_types,id',
-                'song_name' => 'nullable|string|max:255',
-                'version_name' => 'nullable|string|max:255',
-                'album_id' => 'nullable|exists:albums,id',
-                'bpm' => 'nullable|integer|min:1|max:999',
-                'music_key_id' => 'nullable|exists:music_keys,id',
-                'music_genre_id' => 'nullable|exists:music_genres,id',
+                'song_id' => 'nullable|exists:songs,id',
                 'music_creation_status_id' => 'nullable|exists:music_creation_statuses,id',
-                'artists' => 'nullable|array',
-                'artists.*' => 'string|max:255',
             ]));
         } elseif ($department->slug === 'video-editing') {
             $validated = array_merge($validated, $request->validate([
@@ -297,15 +349,6 @@ class AssignmentController extends Controller
         }
 
         $assignment->update($validated);
-
-        // Handle artists (now using IDs)
-        if ($request->has('artists')) {
-            if (is_array($request->artists)) {
-                $assignment->artists()->sync($request->artists);
-            } else {
-                $assignment->artists()->detach();
-            }
-        }
 
         // Handle deliverables
         if ($request->has('deliverables')) {
@@ -327,9 +370,8 @@ class AssignmentController extends Controller
         }
 
         return response()->json($assignment->load([
-            'client', 'department', 'assignedTo', 'album',
-            'musicType', 'musicKey', 'musicGenre', 'musicCreationStatus',
-            'editType', 'footageType', 'deliverables', 'artists', 'notes.creator', 'status'
+            'client', 'department', 'assignedTo', 'song.artists',
+            'musicCreationStatus', 'editType', 'footageType', 'deliverables', 'notes.creator', 'status'
         ]));
     }
 
@@ -392,32 +434,40 @@ class AssignmentController extends Controller
             'assignment_status' => 'pending',
         ];
 
-        // Auto-populate based on parent
-        if ($parentAssignment->song_name) {
-            $childData['song_name'] = $parentAssignment->song_name;
+        // Auto-populate song_id from parent
+        if ($parentAssignment->song_id) {
+            $childData['song_id'] = $parentAssignment->song_id;
         }
-        if ($parentAssignment->release_date) {
-            $childData['release_date'] = $parentAssignment->release_date;
-        }
-        if ($parentAssignment->music_type_id) {
-            $childData['music_type_id'] = $parentAssignment->music_type_id;
 
-            // Calculate completion date
+        // Auto-populate release_date from parent's song
+        if ($parentAssignment->song && $parentAssignment->song->release_date) {
+            $childData['release_date'] = $parentAssignment->song->release_date;
+        }
+
+        // Calculate completion date if song exists
+        if ($parentAssignment->song && $parentAssignment->song->music_type_id && $parentAssignment->song->release_date) {
             $childData['completion_date'] = $this->calculateCompletionDate(
-                $parentAssignment->music_type_id,
+                $parentAssignment->song->music_type_id,
                 $childDepartmentId,
-                $parentAssignment->release_date
+                $parentAssignment->song->release_date
             );
         }
 
         $childAssignment = Assignment::create($childData);
 
         // Pre-select deliverables
+        $musicTypeId = null;
+        if ($parentAssignment->song && $parentAssignment->song->music_type_id) {
+            $musicTypeId = $parentAssignment->song->music_type_id;
+        }
         $deliverableIds = $this->preSelectDeliverables(
-            $parentAssignment->music_type_id,
+            $musicTypeId,
             $childDepartmentId
         );
         $childAssignment->deliverables()->sync($deliverableIds);
+
+        // Ensure department relation is available for response payloads
+        $childAssignment->loadMissing('department');
 
         return $childAssignment;
     }
@@ -486,16 +536,19 @@ class AssignmentController extends Controller
 
     public function getAvailableSongs($id)
     {
-        // Get Music Creation assignments that can be linked
-        $musicCreationDept = Department::where('slug', 'music-creation')->first();
-        if (!$musicCreationDept) {
-            return response()->json([]);
-        }
+        // Get all songs from songs table
+        $songs = Song::with('musicType')
+            ->get(['id', 'name', 'release_date', 'music_type_id']);
 
-        $songs = Assignment::where('department_id', $musicCreationDept->id)
-            ->whereNotNull('song_name')
-            ->with('musicType')
-            ->get(['id', 'song_name', 'release_date', 'music_type_id']);
+        // Map to match expected frontend format
+        $songs = $songs->map(function ($song) {
+            return [
+                'id' => $song->id,
+                'song_name' => $song->name,
+                'release_date' => $song->release_date,
+                'music_type_id' => $song->music_type_id,
+            ];
+        });
 
         return response()->json($songs);
     }
@@ -558,7 +611,7 @@ class AssignmentController extends Controller
 
         // Query for filtered assignments
         $query = Assignment::with([
-            'client', 'department', 'assignedTo', 'album', 'deliverables', 'status', 'createdBy'
+            'client', 'department', 'assignedTo', 'song', 'deliverables', 'status', 'createdBy'
         ])->where('department_id', $departmentId);
 
         // Filter by status
@@ -581,8 +634,10 @@ class AssignmentController extends Controller
         // Generic search
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('song_name', 'like', "%{$search}%")
-                  ->orWhere('assignment_name', 'like', "%{$search}%")
+                $q->where('assignment_name', 'like', "%{$search}%")
+                  ->orWhereHas('song', function ($q) use ($search) {
+                      $q->where('name', 'like', "%{$search}%");
+                  })
                   ->orWhereHas('client', function ($q) use ($search) {
                       $q->where('name', 'like', "%{$search}%");
                   });
@@ -599,7 +654,7 @@ class AssignmentController extends Controller
             return [
                 'id' => $assignment->id,
                 'assignment_id' => $assignment->assignment_id, // Accessor from model (requires department)
-                'assignment_display_name' => $assignment->song_name ?: $assignment->assignment_name,
+                'assignment_display_name' => $assignment->song ? $assignment->song->name : $assignment->assignment_name,
                 'completion_date' => $assignment->completion_date ? $assignment->completion_date->diffForHumans() : null,
                 'assignment_status' => $assignment->assignment_status,
                 'department' => $assignment->department ? [

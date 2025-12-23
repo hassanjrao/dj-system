@@ -7,7 +7,7 @@
 
         <!-- Music Type -->
         <v-autocomplete
-          v-model="localData.music_type_id"
+          v-model="songData.music_type_id"
           :items="lookupData.music_types || []"
           item-text="name"
           item-value="id"
@@ -20,21 +20,18 @@
 
         <!-- Song Name -->
         <v-text-field
-          v-model="localData.song_name"
+          v-model="songData.name"
           label="Song Name *"
           :rules="[(v) => !!v || 'Song name is required']"
           required
         ></v-text-field>
 
         <!-- Version Name -->
-        <v-text-field
-          v-model="localData.version_name"
-          label="Version Name"
-        ></v-text-field>
+        <v-text-field v-model="songData.version" label="Version Name"></v-text-field>
 
         <!-- Album Selector -->
         <v-autocomplete
-          v-model="localData.album_id"
+          v-model="songData.album_id"
           :items="albums"
           item-text="name"
           item-value="id"
@@ -54,7 +51,7 @@
 
         <!-- Artists -->
         <v-autocomplete
-          v-model="localData.artists"
+          v-model="songData.artists"
           :items="artistSuggestions"
           item-text="name"
           item-value="id"
@@ -79,7 +76,7 @@
       <v-col cols="12" md="6">
         <!-- BPM -->
         <v-text-field
-          v-model.number="localData.bpm"
+          v-model.number="songData.bpm"
           label="BPM"
           type="number"
           :rules="[(v) => !v || (v >= 0 && v <= 999) || 'BPM must be between 0 and 999']"
@@ -88,7 +85,7 @@
 
         <!-- Music Key -->
         <v-autocomplete
-          v-model="localData.music_key_id"
+          v-model="songData.music_key_id"
           :items="lookupData.music_keys || []"
           item-text="name"
           item-value="id"
@@ -100,7 +97,7 @@
 
         <!-- Genre -->
         <v-autocomplete
-          v-model="localData.music_genre_id"
+          v-model="songData.music_genre_id"
           :items="lookupData.music_genres || []"
           item-text="name"
           item-value="id"
@@ -112,7 +109,7 @@
 
         <!-- Release Date -->
         <v-text-field
-          v-model="localData.release_date"
+          v-model="songData.release_date"
           label="Release Date & Time (PST) *"
           type="datetime-local"
           :rules="[(v) => !!v || 'Release date is required']"
@@ -123,7 +120,7 @@
         <v-row>
           <v-col cols="9">
             <v-text-field
-              v-model="localData.completion_date"
+              v-model="songData.completion_date"
               label="Completion Date"
               type="date"
             ></v-text-field>
@@ -236,6 +233,18 @@ export default {
   data() {
     return {
       localData: { ...this.modelValue },
+      songData: {
+        name: "",
+        version: "",
+        album_id: null,
+        music_type_id: null,
+        music_genre_id: null,
+        bpm: null,
+        music_key_id: null,
+        release_date: "",
+        completion_date: "",
+        artists: [],
+      },
       artistSuggestions: [],
       showAlbumDialog: false,
       newAlbumName: "",
@@ -253,18 +262,42 @@ export default {
     if (this.parentData) {
       this.populateFromParent();
     }
+    if (this.modelValue.song) {
+      // If editing and song exists, populate song data
+      this.songData = {
+        name: this.modelValue.song.name || "",
+        version: this.modelValue.song.version || "",
+        album_id: this.modelValue.song.album_id || null,
+        music_type_id: this.modelValue.song.music_type_id || null,
+        music_genre_id: this.modelValue.song.music_genre_id || null,
+        bpm: this.modelValue.song.bpm || null,
+        music_key_id: this.modelValue.song.music_key_id || null,
+        release_date: this.modelValue.song.release_date || "",
+        completion_date: this.modelValue.song.completion_date || "",
+        artists: this.modelValue.song.artists
+          ? this.modelValue.song.artists.map((a) => a.id)
+          : [],
+      };
+    }
   },
   methods: {
     populateFromParent() {
-      // Auto-populate from parent if this is a child assignment
-      if (this.parentData.song_name) {
-        this.localData.song_name = this.parentData.song_name;
-      }
-      if (this.parentData.music_type_id) {
-        this.localData.music_type_id = this.parentData.music_type_id;
-      }
-      if (this.parentData.release_date) {
-        this.localData.release_date = this.parentData.release_date;
+      // Auto-populate song data from parent if this is a child assignment
+      if (this.parentData.song) {
+        this.songData = {
+          name: this.parentData.song.name || "",
+          version: this.parentData.song.version || "",
+          album_id: this.parentData.song.album_id || null,
+          music_type_id: this.parentData.song.music_type_id || null,
+          music_genre_id: this.parentData.song.music_genre_id || null,
+          bpm: this.parentData.song.bpm || null,
+          music_key_id: this.parentData.song.music_key_id || null,
+          release_date: this.parentData.song.release_date || "",
+          completion_date: this.parentData.song.completion_date || "",
+          artists: this.parentData.song.artists
+            ? this.parentData.song.artists.map((a) => a.id)
+            : [],
+        };
       }
     },
     onArtistsInput(artists) {
@@ -329,10 +362,10 @@ export default {
           // Add new artist to suggestions (full object with id and name)
           this.artistSuggestions.push(response.data);
           // Add to selected artists (using ID)
-          if (!this.localData.artists) {
-            this.localData.artists = [];
+          if (!this.songData.artists) {
+            this.songData.artists = [];
           }
-          this.localData.artists.push(response.data.id);
+          this.songData.artists.push(response.data.id);
           this.showArtistDialog = false;
           this.newArtistName = "";
           this.updateModel();
@@ -349,14 +382,13 @@ export default {
       this.newArtistName = "";
     },
     createAlbum() {
-      console.log("createAlbum", this.newAlbumName);
       if (!this.newAlbumName) return;
 
       axios
         .post("/albums", { name: this.newAlbumName })
         .then((response) => {
           this.albums.push(response.data);
-          this.localData.album_id = response.data.id;
+          this.songData.album_id = response.data.id;
           this.showAlbumDialog = false;
           this.newAlbumName = "";
           this.updateModel();
@@ -366,11 +398,53 @@ export default {
         });
     },
     calculateCompletionDate() {
-      // Emit event to parent to calculate completion date
-      this.$emit("calculate-completion-date");
+      // Calculate completion date based on song's music type and release date
+      if (!this.songData.release_date || !this.songData.music_type_id) {
+        return;
+      }
+
+      // Get department ID for Music Creation
+      const musicCreationDept = this.departments.find((d) => d.slug === "music-creation");
+      if (!musicCreationDept) return;
+
+      axios
+        .get(`/music-types/${this.songData.music_type_id}/completion-days`, {
+          params: {
+            department_id: musicCreationDept.id,
+          },
+        })
+        .then((response) => {
+          const daysBeforeRelease = response.data.days_before_release || 7;
+          const releaseDate = new Date(this.songData.release_date);
+          releaseDate.setDate(releaseDate.getDate() - daysBeforeRelease);
+          this.songData.completion_date = releaseDate.toISOString().split("T")[0];
+          this.updateModel();
+        })
+        .catch((error) => {
+          console.error("Error calculating completion date:", error);
+          // Fallback: calculate with default 7 days
+          const releaseDate = new Date(this.songData.release_date);
+          releaseDate.setDate(releaseDate.getDate() - 7);
+          this.songData.completion_date = releaseDate.toISOString().split("T")[0];
+          this.updateModel();
+        });
     },
     updateModel() {
-      this.$emit("update:modelValue", this.localData);
+      // Always include song data in the payload (always creating new song)
+      const payload = {
+        ...this.localData,
+        song_name: this.songData.name,
+        song_version: this.songData.version,
+        song_album_id: this.songData.album_id,
+        song_music_type_id: this.songData.music_type_id,
+        song_music_genre_id: this.songData.music_genre_id,
+        song_bpm: this.songData.bpm,
+        song_music_key_id: this.songData.music_key_id,
+        song_release_date: this.songData.release_date,
+        song_completion_date: this.songData.completion_date,
+        song_artists: this.songData.artists || [],
+      };
+      this.$emit("update:modelValue", payload);
     },
   },
   watch: {
@@ -381,6 +455,12 @@ export default {
       deep: true,
     },
     localData: {
+      handler() {
+        this.updateModel();
+      },
+      deep: true,
+    },
+    songData: {
       handler() {
         this.updateModel();
       },

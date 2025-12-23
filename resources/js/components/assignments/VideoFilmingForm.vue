@@ -152,7 +152,7 @@ export default {
         .filter((a) => a.department_id === this.selectedParentDepartment)
         .map((a) => ({
           ...a,
-          display_name: `${a.song_name || a.assignment_name} (${
+          display_name: `${(a.song && a.song.name) || a.assignment_name} (${
             a.department?.name || ""
           })`,
         }));
@@ -178,11 +178,10 @@ export default {
   },
   methods: {
     populateFromParent() {
-      if (this.parentData.release_date) {
+      if (this.parentData.song && this.parentData.song.release_date) {
+        this.localData.release_date = this.parentData.song.release_date;
+      } else if (this.parentData.release_date) {
         this.localData.release_date = this.parentData.release_date;
-      }
-      if (this.parentData.music_type_id) {
-        this.localData.music_type_id = this.parentData.music_type_id;
       }
       if (this.localData.release_timing === "pre-release") {
         this.calculateCompletionDate();
@@ -203,8 +202,11 @@ export default {
         (a) => a.id === this.localData.parent_assignment_id
       );
       if (parent) {
-        this.localData.release_date = parent.release_date;
-        this.localData.music_type_id = parent.music_type_id;
+        if (parent.song && parent.song.release_date) {
+          this.localData.release_date = parent.song.release_date;
+        } else if (parent.release_date) {
+          this.localData.release_date = parent.release_date;
+        }
         if (this.localData.release_timing === "pre-release") {
           this.calculateCompletionDate();
         }
@@ -214,7 +216,6 @@ export default {
     onReleaseTimingChange() {
       if (
         this.localData.release_timing === "pre-release" &&
-        this.localData.music_type_id &&
         this.localData.release_date
       ) {
         this.calculateCompletionDate();
@@ -222,10 +223,25 @@ export default {
       this.updateModel();
     },
     calculateCompletionDate() {
-      if (!this.localData.release_date || !this.localData.music_type_id) return;
+      if (!this.localData.release_date) return;
+
+      // Get music_type_id from parent's song
+      let musicTypeId = null;
+      if (this.isChild && this.parentData && this.parentData.song) {
+        musicTypeId = this.parentData.song.music_type_id;
+      } else if (this.localData.parent_assignment_id) {
+        const parent = this.availableAssignments.find(
+          (a) => a.id === this.localData.parent_assignment_id
+        );
+        if (parent && parent.song) {
+          musicTypeId = parent.song.music_type_id;
+        }
+      }
+
+      if (!musicTypeId) return;
 
       axios
-        .get(`/api/music-types/${this.localData.music_type_id}/completion-days`)
+        .get(`/music-types/${musicTypeId}/completion-days`)
         .then((response) => {
           const daysBeforeRelease = response.data.days_before_release;
           if (daysBeforeRelease) {

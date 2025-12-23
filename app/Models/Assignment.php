@@ -20,18 +20,11 @@ class Assignment extends Model
         'release_timing',
         'reference_links',
         'assignment_status',
-        'music_type_id',
-        'song_name',
-        'version_name',
-        'album_id',
-        'bpm',
-        'music_key_id',
-        'music_genre_id',
         'music_creation_status_id',
         'edit_type_id',
         'footage_type_id',
         'parent_assignment_id',
-        'linked_song_assignment_id',
+        'song_id',
     ];
 
     protected $casts = [
@@ -61,26 +54,6 @@ class Assignment extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function album()
-    {
-        return $this->belongsTo(Album::class);
-    }
-
-    public function musicType()
-    {
-        return $this->belongsTo(MusicType::class);
-    }
-
-    public function musicKey()
-    {
-        return $this->belongsTo(MusicKey::class);
-    }
-
-    public function musicGenre()
-    {
-        return $this->belongsTo(MusicGenre::class);
-    }
-
     public function musicCreationStatus()
     {
         return $this->belongsTo(MusicCreationStatus::class);
@@ -106,9 +79,9 @@ class Assignment extends Model
         return $this->hasMany(Assignment::class, 'parent_assignment_id');
     }
 
-    public function linkedSongAssignment()
+    public function song()
     {
-        return $this->belongsTo(Assignment::class, 'linked_song_assignment_id');
+        return $this->belongsTo(Song::class);
     }
 
     public function deliverables()
@@ -116,17 +89,6 @@ class Assignment extends Model
         return $this->belongsToMany(Deliverable::class, 'assignment_deliverables')
             ->withPivot('status', 'notes')
             ->withTimestamps();
-    }
-
-    public function artists()
-    {
-        return $this->belongsToMany(Artist::class, 'assignment_artists')
-            ->withTimestamps();
-    }
-
-    public function assignmentArtists()
-    {
-        return $this->hasMany(AssignmentArtist::class);
     }
 
     public function notes()

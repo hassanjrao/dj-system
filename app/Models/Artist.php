@@ -15,9 +15,9 @@ class Artist extends Model
         'name',
     ];
 
-    public function assignments()
+    public function songs()
     {
-        return $this->belongsToMany(Assignment::class, 'assignment_artists')
+        return $this->belongsToMany(Song::class, 'artist_song')
             ->withTimestamps();
     }
 }

@@ -133,7 +133,7 @@ export default {
         .filter((a) => a.department_id === this.selectedParentDepartment)
         .map((a) => ({
           ...a,
-          display_name: `${a.song_name || a.assignment_name} (${
+          display_name: `${(a.song && a.song.name) || a.assignment_name} (${
             a.department?.name || ""
           })`,
         }));
@@ -154,9 +154,6 @@ export default {
   },
   methods: {
     populateFromParent() {
-      if (this.parentData.music_type_id) {
-        this.localData.music_type_id = this.parentData.music_type_id;
-      }
       this.preSelectDeliverables();
     },
     onStandaloneChange() {
@@ -174,19 +171,36 @@ export default {
         (a) => a.id === this.localData.parent_assignment_id
       );
       if (parent) {
-        this.localData.music_type_id = parent.music_type_id;
+        if (parent.song && parent.song.release_date) {
+          this.localData.release_date = parent.song.release_date;
+        } else if (parent.release_date) {
+          this.localData.release_date = parent.release_date;
+        }
         this.preSelectDeliverables();
       }
       this.updateModel();
     },
     preSelectDeliverables() {
-      if (!this.localData.music_type_id) return;
+      // Get music_type_id from parent's song
+      let musicTypeId = null;
+      if (this.isChild && this.parentData && this.parentData.song) {
+        musicTypeId = this.parentData.song.music_type_id;
+      } else if (this.localData.parent_assignment_id) {
+        const parent = this.availableAssignments.find(
+          (a) => a.id === this.localData.parent_assignment_id
+        );
+        if (parent && parent.song) {
+          musicTypeId = parent.song.music_type_id;
+        }
+      }
+
+      if (!musicTypeId) return;
 
       axios
-        .get(`/api/deliverables/pre-select`, {
+        .get(`/deliverables/pre-select`, {
           params: {
-            department: this.departmentSlug,
-            music_type_id: this.localData.music_type_id,
+            department_id: this.findDeptId(this.departmentName),
+            music_type_id: musicTypeId,
           },
         })
         .then((response) => {

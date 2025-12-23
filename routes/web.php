@@ -64,6 +64,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('artists', 'App\Http\Controllers\AssignmentController@getArtists');
     Route::post('artists', 'App\Http\Controllers\AssignmentController@storeArtist');
 
+    // Song routes
+    Route::get('songs', 'App\Http\Controllers\SongController@index');
+    Route::post('songs', 'App\Http\Controllers\SongController@store');
+    Route::get('songs/{id}', 'App\Http\Controllers\SongController@show');
+    Route::put('songs/{id}', 'App\Http\Controllers\SongController@update');
+    Route::delete('songs/{id}', 'App\Http\Controllers\SongController@destroy');
+
     // Deliverable routes
     Route::get('deliverables', 'App\Http\Controllers\DeliverableController@index');
     Route::get('deliverables/pre-select', 'App\Http\Controllers\DeliverableController@preSelect');
