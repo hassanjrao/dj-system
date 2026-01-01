@@ -175,6 +175,7 @@
             :parent-data="parentData"
             :lookup-data="lookupData"
             :available-songs="availableSongs"
+            :selected-department-id="formData.department_id || null"
             @update:modelValue="updateFormData"
           />
 

@@ -71,9 +71,6 @@ Route::middleware(['auth'])->group(function () {
     Route::put('songs/{id}', 'App\Http\Controllers\SongController@update');
     Route::delete('songs/{id}', 'App\Http\Controllers\SongController@destroy');
 
-    // Deliverable routes
-    Route::get('deliverables', 'App\Http\Controllers\DeliverableController@index');
-    Route::get('deliverables/pre-select', 'App\Http\Controllers\DeliverableController@preSelect');
     Route::get('music-types/{id}/completion-days', 'App\Http\Controllers\AssignmentController@getCompletionDays');
 
     // Assignment relationship routes

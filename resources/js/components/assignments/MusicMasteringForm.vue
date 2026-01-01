@@ -47,7 +47,7 @@
     <!-- Deliverables -->
     <v-autocomplete
       v-model="localData.deliverables"
-      :items="availableDeliverables"
+      :items="deliverables"
       item-text="name"
       item-value="id"
       label="Please Select All Deliverables Needed *"
@@ -56,6 +56,7 @@
       chips
       small-chips
       required
+      @change="updateModel"
     ></v-autocomplete>
   </div>
 </template>
@@ -84,28 +85,20 @@ export default {
       type: Array,
       default: () => [],
     },
+    selectedDepartmentId: {
+      type: Number,
+      default: null,
+    },
   },
   data() {
-    // Convert deliverables from relationship objects to array of IDs if needed
-    let deliverables = [];
-    if (this.modelValue.deliverables) {
-      if (Array.isArray(this.modelValue.deliverables)) {
-        deliverables = this.modelValue.deliverables.map((d) =>
-          typeof d === "object" && d.id ? d.id : d
-        );
-      } else {
-        deliverables = [];
-      }
-    }
-
     return {
       localData: {
         ...this.modelValue,
-        deliverables: deliverables,
+        deliverables: [],
       },
       selectedSongId: this.modelValue.song_id || null,
-      availableDeliverables: [],
       selectedSong: null,
+      deliverables: [],
     };
   },
   computed: {
@@ -152,6 +145,7 @@ export default {
     },
   },
   mounted() {
+    this.getDeliverables();
     console.log("MusicMasteringForm mounted", {
       isChild: this.isChild,
       parentData: this.parentData,
@@ -159,7 +153,7 @@ export default {
       hasSong: !!this.localData.song,
     });
 
-    this.loadDeliverables();
+    console.log("modelValue", this.modelValue);
 
     // For child assignments
     if (this.isChild) {
@@ -170,7 +164,6 @@ export default {
         this.selectedSongId = this.localData.song_id;
         if (this.localData.song) {
           this.calculateCompletionDate();
-          this.preSelectDeliverables();
         }
       }
     } else {
@@ -193,13 +186,8 @@ export default {
         this.localData.song_id = this.parentData.song_id;
         this.selectedSongId = this.parentData.song_id;
       }
-
       // Auto-calculate completion date
       this.calculateCompletionDate();
-
-      // Pre-select deliverables based on song type (can be manually changed)
-      this.preSelectDeliverables();
-
       this.updateModel();
     },
     onSongSelected() {
@@ -208,7 +196,6 @@ export default {
       if (this.selectedSong) {
         this.localData.song_id = this.selectedSong.id;
         this.calculateCompletionDate();
-        this.preSelectDeliverables();
       }
       this.updateModel();
     },
@@ -226,7 +213,7 @@ export default {
 
       // Calculate completion date based on music type and release date
       // Get music mastering department ID
-      const musicMasteringDeptId = this.findDeptId("Music Mastering");
+      const musicMasteringDeptId = this.selectedDepartmentId;
       if (!musicMasteringDeptId) {
         // Fallback: calculate with default 7 days
         const releaseDate = new Date(song.release_date);
@@ -258,120 +245,24 @@ export default {
           this.updateModel();
         });
     },
-    preSelectDeliverables() {
-      let song = null;
-      if (this.isChild && this.parentData && this.parentData.song) {
-        song = this.parentData.song;
-      } else if (this.selectedSong) {
-        song = this.selectedSong;
-      } else if (this.localData.song) {
-        song = this.localData.song;
-      }
-
-      if (!song || !song.music_type_id) return;
-
-      // Get default deliverables for music mastering based on music type
-      // This will pre-select but user can still manually change
-      const musicMasteringDeptId = this.findDeptId("Music Mastering");
-      if (!musicMasteringDeptId) return;
-
+    updateModel() {
+      console.log("updateModel", this.localData);
+      this.$emit("update:modelValue", this.localData);
+    },
+    getDeliverables() {
       axios
-        .get(`/deliverables/pre-select`, {
+        .get(`/lookup/deliverables`, {
           params: {
-            department_id: musicMasteringDeptId,
-            music_type_id: song.music_type_id,
+            department_id: this.selectedDepartmentId,
           },
         })
         .then((response) => {
-          // Only set if deliverables not already selected (preserve user selections)
-          if (!this.localData.deliverables || this.localData.deliverables.length === 0) {
-            this.localData.deliverables = response.data.map((d) => d.id);
-            this.updateModel();
-          }
+          console.log("deliverables", response.data);
+          this.deliverables  = response.data;
         })
         .catch((error) => {
-          console.error("Error pre-selecting deliverables:", error);
+          console.error("Error getting deliverables:", error);
         });
-    },
-    findDeptId(name) {
-      // Try to find department ID from lookupData
-      if (this.lookupData && this.lookupData.departments) {
-        const dept = this.lookupData.departments.find((d) => d.name === name);
-        return dept ? dept.id : null;
-      }
-      // Try to find from formData if available
-      if (this.localData && this.localData.department_id) {
-        // If we're in Music Mastering form, the department_id should be Music Mastering
-        return this.localData.department_id;
-      }
-      return null;
-    },
-    loadDeliverables() {
-      // Use the department_id from localData if available (for child assignments)
-      let deptId = this.localData.department_id;
-
-      // Otherwise try to find Music Mastering department ID
-      if (!deptId) {
-        deptId = this.findDeptId("Music Mastering");
-      }
-
-      if (deptId) {
-        console.log("Loading deliverables for department ID:", deptId);
-        this.loadDeliverablesByDeptId(deptId);
-      } else {
-        console.error("Could not find department ID for loading deliverables");
-      }
-    },
-    loadDeliverablesByDeptId(departmentId) {
-      axios
-        .get("/lookup/deliverables", {
-          params: { department_id: departmentId },
-        })
-        .then((response) => {
-          this.availableDeliverables = response.data;
-        })
-        .catch((error) => {
-          console.error("Error loading deliverables:", error);
-        });
-    },
-    updateModel() {
-      this.$emit("update:modelValue", this.localData);
-    },
-  },
-  watch: {
-    modelValue: {
-      handler(newVal) {
-        // Convert deliverables from relationship objects to array of IDs if needed
-        let deliverables = [];
-        if (newVal.deliverables) {
-          if (Array.isArray(newVal.deliverables)) {
-            deliverables = newVal.deliverables.map((d) =>
-              typeof d === "object" && d.id ? d.id : d
-            );
-          }
-        }
-        this.localData = { ...newVal, deliverables: deliverables };
-        if (newVal.song_id) {
-          this.selectedSongId = newVal.song_id;
-        }
-      },
-      deep: true,
-    },
-    localData: {
-      handler() {
-        this.updateModel();
-      },
-      deep: true,
-    },
-    parentData: {
-      handler(newVal) {
-        // When parent data becomes available or changes, populate from parent
-        if (this.isChild && newVal && newVal.song) {
-          this.populateFromParent();
-        }
-      },
-      deep: true,
-      immediate: false,
     },
   },
 };
