@@ -26,6 +26,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('assignments', 'App\Http\Controllers\AssignmentController@store');
     Route::get('assignments/{id}/edit', 'App\Http\Controllers\AssignmentController@edit')->name('assignments.edit');
     Route::get('assignments/{id}', 'App\Http\Controllers\AssignmentController@show')->name('assignments.show');
+    Route::get('assignments/{id}/data', 'App\Http\Controllers\AssignmentController@getData')->name('assignments.data');
     Route::put('assignments/{id}', 'App\Http\Controllers\AssignmentController@update');
     Route::delete('assignments/{id}', 'App\Http\Controllers\AssignmentController@destroy');
     Route::get('assignments/{id}/available-songs', 'App\Http\Controllers\AssignmentController@getAvailableSongs');

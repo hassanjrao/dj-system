@@ -327,6 +327,35 @@ class AssignmentController extends Controller
         return view('assignments.show', compact('assignment'));
     }
 
+    public function getData($id)
+    {
+        $assignment = Assignment::with([
+            'client',
+            'department',
+            'assignedTo',
+            'song.artists',
+            'musicCreationStatus',
+            'editType',
+            'footageType',
+            'deliverables',
+            'notes',
+            'parentAssignment',
+            'childAssignments',
+            'status',
+            'notes.creator'
+        ])->findOrFail($id);
+
+        $assignment->notes = $assignment->notes->map(function ($note) {
+            return [
+                'note' => $note->note,
+                'note_for' => $note->note_for,
+            ];
+        })->toArray();
+
+
+        return response()->json($assignment);
+    }
+
     public function update(Request $request, $id)
     {
         $user = Auth::user();

@@ -529,6 +529,12 @@ export default {
     this.loadingInitialData = true;
     try {
       await this.getInitialData();
+
+      // If editing, load assignment data from API
+      if (this.isEdit && this.formData.id) {
+        await this.loadAssignmentData(this.formData.id);
+      }
+
       this.initializeClient();
       this.initializeNotes();
       this.loadUsersForDepartment();
@@ -688,6 +694,44 @@ export default {
     },
     updateModel() {
       this.$emit("update:modelValue", this.formData);
+    },
+    async loadAssignmentData(assignmentId) {
+        console.log('loading assignment data', assignmentId);
+      try {
+        const response = await axios.get(`/assignments/${assignmentId}/edit`, {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        const assignmentData = response.data.assignment;
+
+        // Populate form data with assignment data
+        // Merge to preserve any existing formData properties
+        this.formData = { ...this.formData, ...assignmentData };
+
+        // Update parent assignment data if it exists
+        if (assignmentData.parent_assignment) {
+          this.parentAssignmentData = assignmentData.parent_assignment;
+        }
+
+        // Ensure song_artists is properly set (API should provide this, but handle both cases)
+        if (assignmentData.song_artists) {
+          this.formData.song_artists = assignmentData.song_artists;
+        } else if (assignmentData.song && assignmentData.song.artists) {
+          // Fallback: extract artist IDs from song.artists relationship
+          this.formData.song_artists = assignmentData.song.artists.map(
+            (artist) => artist.id
+          );
+        } else {
+          this.formData.song_artists = [];
+        }
+
+        console.log('formData', this.formData);
+      } catch (error) {
+        console.error("Error loading assignment data:", error);
+        throw error;
+      }
     },
     loadChildAssignmentData(childId) {
       this.childFormLoading = true;

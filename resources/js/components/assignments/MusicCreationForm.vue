@@ -243,6 +243,7 @@ export default {
     if (this.parentData) {
       this.populateFromParent();
     }
+    console.log("modelValue", this.lookupData);
     if (this.modelValue.song) {
       // If editing and song exists, populate song data
       this.songData = {
