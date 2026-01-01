@@ -111,6 +111,34 @@
         <v-form ref="form" v-model="valid" v-if="currentStep === 2">
           <v-divider class="my-4"></v-divider>
 
+          <!-- Selected Department and Client (Disabled) -->
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-autocomplete
+                v-model="formData.department_id"
+                :items="departments"
+                item-text="name"
+                item-value="id"
+                label="Department"
+                disabled
+                chips
+                small-chips
+              ></v-autocomplete>
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-autocomplete
+                v-model="selectedClient"
+                :items="localClients"
+                item-text="name"
+                item-value="id"
+                label="Client"
+                disabled
+                chips
+                small-chips
+              ></v-autocomplete>
+            </v-col>
+          </v-row>
+
           <!-- Assigned To (filtered by department) -->
           <v-row>
             <v-col cols="12" md="6">
