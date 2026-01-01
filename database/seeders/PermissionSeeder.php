@@ -17,7 +17,5 @@ class PermissionSeeder extends Seeder
         // Create roles
         Role::firstOrCreate(['name' => 'super-admin']);
         Role::firstOrCreate(['name' => 'admin']);
-        Role::firstOrCreate(['name' => 'view-all-edit-assigned']);
-        Role::firstOrCreate(['name' => 'view-all-update-assigned']);
     }
 }
