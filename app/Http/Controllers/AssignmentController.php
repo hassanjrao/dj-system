@@ -556,7 +556,7 @@ class AssignmentController extends Controller
         //     ->pluck('id')
         //     ->toArray();
 
-        return $deliverables;
+        // return $deliverables;
     }
 
     private function populateChildAssignment($parentAssignment, $childDepartmentId)

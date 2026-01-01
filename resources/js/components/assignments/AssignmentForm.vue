@@ -19,7 +19,7 @@
             >Next</v-btn
           >
           <v-btn
-            v-if="currentStep === 2"
+            v-if="currentStep === 2 && !isEdit"
             text
             small
             @click="goToPreviousStep"
@@ -483,7 +483,7 @@ export default {
   },
   data() {
     return {
-      currentStep: 1,
+      currentStep: this.isEdit ? 2 : 1,
       valid: false,
       step1Valid: false,
       loading: false,
@@ -533,6 +533,11 @@ export default {
       this.initializeNotes();
       this.loadUsersForDepartment();
       this.loadAvailableSongs();
+
+      // If editing, load child departments for the selected department
+      if (this.isEdit && this.formData.department_id) {
+        this.loadChildDepartments();
+      }
     } catch (error) {
       console.error("Error loading initial data:", error);
       alert("Failed to load initial data. Please refresh the page.");
@@ -788,7 +793,8 @@ export default {
                 this.loadChildAssignmentData(this.childAssignmentsQueue[0].id);
               } else {
                 // No child assignments, redirect to assignments list
-                window.location.href = "/assignments?department_id=" + this.formData.department_id;
+                window.location.href =
+                  "/assignments?department_id=" + this.formData.department_id;
               }
             })
             .catch((error) => {
@@ -860,7 +866,13 @@ export default {
         }
       } else {
         // Going back from Step 2 to Step 1
-        this.currentStep = 1;
+        // Don't allow going back to Step 1 if editing
+        if (this.isEdit) {
+          // When editing, Step 2 is the first step, so cancel instead
+          this.cancel();
+        } else {
+          this.currentStep = 1;
+        }
       }
     },
     initializeNotes() {
