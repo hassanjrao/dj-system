@@ -123,20 +123,6 @@
       </template>
     </v-checkbox>
 
-    <!-- Notes for Video Editor -->
-    <v-textarea
-      v-model="localData.notes_for_video_editor"
-      label="Notes For Video Editor"
-      rows="3"
-    ></v-textarea>
-
-    <!-- Reference Links for Video Editor -->
-    <v-textarea
-      v-model="localData.reference_links_video_editor"
-      label="Reference Links For Video Editor (one per line)"
-      rows="3"
-    ></v-textarea>
-
     <!-- Link Child Assignments (if this is a parent) -->
     <v-divider v-if="!isChild" class="my-4"></v-divider>
     <v-subheader v-if="!isChild">Link Child Assignments (Optional)</v-subheader>

@@ -1,32 +1,25 @@
 <template>
   <div>
-    <!-- WHAT SONG - Only show if NOT a child assignment -->
+    <!-- WHAT SONG - Disabled for child assignments, enabled for standalone -->
     <v-autocomplete
-      v-if="!isChild"
       v-model="selectedSongId"
-      :items="availableSongs"
+      :items="songsList"
       item-text="name"
       item-value="id"
       label="What Song *"
       :rules="[(v) => !!v || 'Song selection is required']"
+      :disabled="isChild"
       chips
       small-chips
       required
       @change="onSongSelected"
     ></v-autocomplete>
 
-    <!-- Song Name (auto-populated, readonly) -->
-    <v-text-field
-      v-model="displaySongName"
-      label="Song Name"
-      readonly
-      :value="displaySongName || ''"
-    ></v-text-field>
-
     <!-- Release Date (auto-populated, readonly) -->
     <v-text-field
       v-model="displayReleaseDate"
       label="Release Date"
+      type="date"
       readonly
       :value="displayReleaseDate || ''"
     ></v-text-field>
@@ -52,15 +45,18 @@
     </v-row>
 
     <!-- Deliverables -->
-    <v-divider class="my-4"></v-divider>
-    <v-subheader>PLEASE SELECT ALL DELIVERABLES NEEDED</v-subheader>
-    <v-checkbox
-      v-for="deliverable in availableDeliverables"
-      :key="deliverable.id"
+    <v-autocomplete
       v-model="localData.deliverables"
-      :value="deliverable.id"
-      :label="deliverable.name"
-    ></v-checkbox>
+      :items="availableDeliverables"
+      item-text="name"
+      item-value="id"
+      label="Please Select All Deliverables Needed *"
+      :rules="[(v) => (v && v.length > 0) || 'At least one deliverable is required']"
+      multiple
+      chips
+      small-chips
+      required
+    ></v-autocomplete>
   </div>
 </template>
 
@@ -113,6 +109,19 @@ export default {
     };
   },
   computed: {
+    songsList() {
+      // For child assignments, show the parent's song or the loaded song
+      if (this.isChild) {
+        if (this.parentData && this.parentData.song) {
+          return [this.parentData.song];
+        } else if (this.localData.song) {
+          return [this.localData.song];
+        }
+        return [];
+      }
+      // For standalone assignments, show all available songs
+      return this.availableSongs;
+    },
     displaySongName() {
       if (this.isChild && this.parentData && this.parentData.song) {
         return this.parentData.song.name;
@@ -126,29 +135,54 @@ export default {
       return "";
     },
     displayReleaseDate() {
+      let date = null;
       if (this.isChild && this.parentData && this.parentData.song) {
-        return this.parentData.song.release_date;
+        date = this.parentData.song.release_date;
+      } else if (this.selectedSong) {
+        date = this.selectedSong.release_date;
+      } else if (this.localData.song && this.localData.song.release_date) {
+        date = this.localData.song.release_date;
       }
-      if (this.selectedSong) {
-        return this.selectedSong.release_date;
-      }
-      if (this.localData.song && this.localData.song.release_date) {
-        return this.localData.song.release_date;
+
+      // Format date to yyyy-MM-dd for HTML date input
+      if (date) {
+        return date.split("T")[0]; // Remove time portion
       }
       return "";
     },
   },
   mounted() {
+    console.log("MusicMasteringForm mounted", {
+      isChild: this.isChild,
+      parentData: this.parentData,
+      localData: this.localData,
+      hasSong: !!this.localData.song,
+    });
+
     this.loadDeliverables();
-    if (this.isChild && this.parentData) {
-      this.populateFromParent();
-    } else if (this.localData.song_id && this.availableSongs.length > 0) {
-      // If editing and song_id exists, find the song
-      this.selectedSong = this.availableSongs.find(
-        (s) => s.id === this.localData.song_id
-      );
-      if (this.selectedSong) {
-        this.calculateCompletionDate();
+
+    // For child assignments
+    if (this.isChild) {
+      if (this.parentData && this.parentData.song) {
+        this.populateFromParent();
+      } else if (this.localData.song_id) {
+        // Child assignment already has song_id loaded from backend
+        this.selectedSongId = this.localData.song_id;
+        if (this.localData.song) {
+          this.calculateCompletionDate();
+          this.preSelectDeliverables();
+        }
+      }
+    } else {
+      // For standalone assignments
+      if (this.localData.song_id && this.availableSongs.length > 0) {
+        // If editing and song_id exists, find the song
+        this.selectedSong = this.availableSongs.find(
+          (s) => s.id === this.localData.song_id
+        );
+        if (this.selectedSong) {
+          this.calculateCompletionDate();
+        }
       }
     }
   },
@@ -157,6 +191,7 @@ export default {
       // Auto-populate song_id from parent Music Creation assignment
       if (this.parentData.song_id) {
         this.localData.song_id = this.parentData.song_id;
+        this.selectedSongId = this.parentData.song_id;
       }
 
       // Auto-calculate completion date
@@ -169,7 +204,7 @@ export default {
     },
     onSongSelected() {
       // Find the selected song and set song_id
-      this.selectedSong = this.availableSongs.find((s) => s.id === this.selectedSongId);
+      this.selectedSong = this.songsList.find((s) => s.id === this.selectedSongId);
       if (this.selectedSong) {
         this.localData.song_id = this.selectedSong.id;
         this.calculateCompletionDate();
@@ -272,16 +307,20 @@ export default {
       return null;
     },
     loadDeliverables() {
-      const musicMasteringDeptId = this.findDeptId("Music Mastering");
-      if (!musicMasteringDeptId) {
-        // Try to get from formData
-        if (this.localData.department_id) {
-          this.loadDeliverablesByDeptId(this.localData.department_id);
-        }
-        return;
+      // Use the department_id from localData if available (for child assignments)
+      let deptId = this.localData.department_id;
+
+      // Otherwise try to find Music Mastering department ID
+      if (!deptId) {
+        deptId = this.findDeptId("Music Mastering");
       }
 
-      this.loadDeliverablesByDeptId(musicMasteringDeptId);
+      if (deptId) {
+        console.log("Loading deliverables for department ID:", deptId);
+        this.loadDeliverablesByDeptId(deptId);
+      } else {
+        console.error("Could not find department ID for loading deliverables");
+      }
     },
     loadDeliverablesByDeptId(departmentId) {
       axios
@@ -323,6 +362,16 @@ export default {
         this.updateModel();
       },
       deep: true,
+    },
+    parentData: {
+      handler(newVal) {
+        // When parent data becomes available or changes, populate from parent
+        if (this.isChild && newVal && newVal.song) {
+          this.populateFromParent();
+        }
+      },
+      deep: true,
+      immediate: false,
     },
   },
 };

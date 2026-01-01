@@ -87,20 +87,6 @@
       :label="deliverable.name"
     ></v-checkbox>
 
-    <!-- Notes for Graphics -->
-    <v-textarea
-      v-model="localData.notes_for_graphics"
-      label="Notes For Graphics"
-      rows="3"
-    ></v-textarea>
-
-    <!-- Reference Links for Graphics -->
-    <v-textarea
-      v-model="localData.reference_links_graphics"
-      label="Reference Links For Graphics (one per line)"
-      rows="3"
-    ></v-textarea>
-
     <!-- Link Child Assignments (if this is a parent) -->
     <v-divider v-if="!isChild" class="my-4"></v-divider>
     <v-subheader v-if="!isChild">Link Child Assignments (Optional)</v-subheader>

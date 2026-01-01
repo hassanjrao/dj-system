@@ -46,7 +46,7 @@ class AssignmentController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'status'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'status', 'parentAssignment.song.artists'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
@@ -80,6 +80,17 @@ class AssignmentController extends Controller
             'edit_types' => \App\Models\EditType::all(),
             'footage_types' => \App\Models\FootageType::all(),
         ];
+
+        // Return JSON if requested via API (e.g., for child assignment loading)
+        if (request()->wantsJson() || request()->expectsJson()) {
+            return response()->json([
+                'assignment' => $assignment,
+                'departments' => $departments,
+                'clients' => $clients,
+                'users' => $users,
+                'lookupData' => $lookupData,
+            ]);
+        }
 
         return view('assignments.edit', compact('assignment', 'departments', 'clients', 'users', 'lookupData'));
     }

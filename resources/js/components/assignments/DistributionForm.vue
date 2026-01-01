@@ -54,20 +54,6 @@
       :label="deliverable.name"
     ></v-checkbox>
 
-    <!-- Notes for Distribution -->
-    <v-textarea
-      v-model="localData.notes_for_distribution"
-      label="Notes For Distribution"
-      rows="3"
-    ></v-textarea>
-
-    <!-- Reference Links for Distribution -->
-    <v-textarea
-      v-model="localData.reference_links_distribution"
-      label="Reference Links For Distribution (one per line)"
-      rows="3"
-    ></v-textarea>
-
     <!-- Link Child Assignments (if this is a parent) -->
     <v-divider v-if="!isChild" class="my-4"></v-divider>
     <v-subheader v-if="!isChild">Link Child Assignments (Optional)</v-subheader>

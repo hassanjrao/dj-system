@@ -18,7 +18,7 @@ class CreateArtistSongTable extends Migration
             $table->foreignId('artist_id')->constrained()->onDelete('cascade');
             $table->foreignId('song_id')->constrained()->onDelete('cascade');
             $table->timestamps();
-            
+
             // Unique constraint to prevent duplicate artist-song pairs
             $table->unique(['artist_id', 'song_id']);
         });

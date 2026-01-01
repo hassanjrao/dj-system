@@ -16,7 +16,7 @@ class EmptyAssignmentsArtistsData extends Migration
     {
         // Disable foreign key checks temporarily
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        
+
         // Truncate tables in order (respecting foreign key dependencies)
         if (Schema::hasTable('assignment_artists')) {
             DB::table('assignment_artists')->truncate();
@@ -27,7 +27,7 @@ class EmptyAssignmentsArtistsData extends Migration
         if (Schema::hasTable('artists')) {
             DB::table('artists')->truncate();
         }
-        
+
         // Re-enable foreign key checks
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
     }

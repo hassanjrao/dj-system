@@ -76,20 +76,6 @@
       >Auto-Calculate</v-btn
     >
 
-    <!-- Notes for Videographer -->
-    <v-textarea
-      v-model="localData.notes_for_videographer"
-      label="Notes For Videographer"
-      rows="3"
-    ></v-textarea>
-
-    <!-- Reference Links for Videographer -->
-    <v-textarea
-      v-model="localData.reference_links_videographer"
-      label="Reference Links For Videographer (one per line)"
-      rows="3"
-    ></v-textarea>
-
     <!-- Link Child Assignments (if this is a parent) -->
     <v-divider v-if="!isChild" class="my-4"></v-divider>
     <v-subheader v-if="!isChild">Link Child Assignments (Optional)</v-subheader>

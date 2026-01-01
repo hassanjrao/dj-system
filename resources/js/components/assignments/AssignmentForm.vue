@@ -35,16 +35,13 @@
             @click="submit"
             >Save</v-btn
           >
-          <v-btn
-            v-if="currentStep >= 3"
-            text
-            small
-            @click="goToPreviousStep"
-            class="mr-2"
+          <v-btn v-if="currentStep >= 3" text small @click="goToPreviousStep" class="mr-2"
             >Back</v-btn
           >
           <v-btn
-            v-if="currentStep >= 3 && currentChildIndex < childAssignmentsQueue.length - 1"
+            v-if="
+              currentStep >= 3 && currentChildIndex < childAssignmentsQueue.length - 1
+            "
             color="primary"
             small
             :disabled="loading || childFormLoading"
@@ -53,7 +50,9 @@
             >Save & Continue</v-btn
           >
           <v-btn
-            v-if="currentStep >= 3 && currentChildIndex === childAssignmentsQueue.length - 1"
+            v-if="
+              currentStep >= 3 && currentChildIndex === childAssignmentsQueue.length - 1
+            "
             color="primary"
             small
             :disabled="loading || childFormLoading"
@@ -266,7 +265,9 @@
 
           <!-- Link Child Assignments (Common for all departments) -->
           <v-divider v-if="availableChildDepartments.length > 0" class="my-4"></v-divider>
-          <v-subheader v-if="availableChildDepartments.length > 0">PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader>
+          <v-subheader v-if="availableChildDepartments.length > 0"
+            >PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader
+          >
           <v-row v-if="availableChildDepartments.length > 0">
             <v-col cols="12">
               <v-autocomplete
@@ -293,8 +294,11 @@
           ></v-progress-linear>
 
           <v-alert type="info" text class="mb-4">
-            Editing child assignment {{ currentChildIndex + 1 }} of {{ childAssignmentsQueue.length }}:
-            <strong>{{ childAssignmentsQueue[currentChildIndex]?.department?.name }}</strong>
+            Editing child assignment {{ currentChildIndex + 1 }} of
+            {{ childAssignmentsQueue.length }}:
+            <strong>{{
+              childAssignmentsQueue[currentChildIndex]?.department?.name
+            }}</strong>
           </v-alert>
 
           <v-divider class="my-4"></v-divider>
@@ -379,40 +383,39 @@
             @update:modelValue="updateFormData"
           />
 
-          <!-- Notes Section -->
+          <!-- Common fields -->
           <v-divider class="my-4"></v-divider>
-          <v-subheader>NOTES</v-subheader>
+
+          <!-- Notes Section -->
           <v-row>
-            <v-col cols="12" md="10">
-              <v-textarea
-                v-model="newNote.note"
-                label="Add Note"
-                rows="2"
-                outlined
-                dense
-              ></v-textarea>
+            <v-col cols="12">
+              <v-subheader>Notes</v-subheader>
             </v-col>
-            <v-col cols="12" md="2">
-              <v-select
+          </v-row>
+          <v-row>
+            <v-col cols="12" md="8">
+              <v-text-field v-model="newNote.note" label="Note"></v-text-field>
+            </v-col>
+            <v-col cols="12" md="3">
+              <v-autocomplete
                 v-model="newNote.note_for"
                 :items="noteForOptions"
                 item-text="label"
                 item-value="value"
                 label="Note For"
-                dense
-                outlined
-              ></v-select>
+                chips
+                small-chips
+              ></v-autocomplete>
             </v-col>
-          </v-row>
-          <v-row>
-            <v-col cols="12">
+            <v-col cols="12" md="1" class="d-flex align-center">
               <v-btn
-                small
+                icon
                 color="primary"
-                :disabled="!newNote.note || !newNote.note_for"
                 @click="addNote"
-                >Add Note</v-btn
+                :disabled="!newNote.note || !newNote.note_for"
               >
+                <v-icon>mdi-plus</v-icon>
+              </v-btn>
             </v-col>
           </v-row>
 
@@ -538,10 +541,6 @@ export default {
       type: Object,
       default: () => null,
     },
-    availableSongs: {
-      type: Array,
-      default: () => [],
-    },
     availableAssignments: {
       type: Array,
       default: () => [],
@@ -593,6 +592,7 @@ export default {
       parentAssignmentId: null,
       parentAssignmentData: null,
       childFormLoading: false,
+      availableSongs: [],
     };
   },
   mounted() {
@@ -601,6 +601,7 @@ export default {
     this.initializeClient();
     this.initializeNotes();
     this.loadUsersForDepartment();
+    this.loadAvailableSongs();
   },
   methods: {
     initializeDepartmentIds() {
@@ -670,6 +671,18 @@ export default {
           console.error("Error loading users:", error);
           this.filteredUsers = [];
           this.loadingUsers = false;
+        });
+    },
+    loadAvailableSongs() {
+      axios
+        .get("/songs")
+        .then((response) => {
+          this.availableSongs = response.data;
+          console.log("Available songs loaded:", this.availableSongs.length);
+        })
+        .catch((error) => {
+          console.error("Error loading songs:", error);
+          this.availableSongs = [];
         });
     },
     loadChildDepartments() {
@@ -753,6 +766,12 @@ export default {
           const childData = response.data.assignment;
           // Populate form data with child assignment data
           this.formData = { ...childData };
+
+          // Update parent assignment data from child's parent relationship
+          if (childData.parent_assignment) {
+            this.parentAssignmentData = childData.parent_assignment;
+          }
+
           this.childFormLoading = false;
         })
         .catch((error) => {
@@ -792,7 +811,9 @@ export default {
                 // Move to next child
                 this.currentChildIndex++;
                 this.currentStep++;
-                this.loadChildAssignmentData(this.childAssignmentsQueue[this.currentChildIndex].id);
+                this.loadChildAssignmentData(
+                  this.childAssignmentsQueue[this.currentChildIndex].id
+                );
               } else {
                 // All children processed, redirect to assignments list
                 window.location.href = "/assignments";
@@ -826,7 +847,10 @@ export default {
               this.loading = false;
 
               // Check if child assignments were created
-              if (response.data.child_assignments && response.data.child_assignments.length > 0) {
+              if (
+                response.data.child_assignments &&
+                response.data.child_assignments.length > 0
+              ) {
                 // Store child assignments queue
                 this.childAssignmentsQueue = response.data.child_assignments;
                 this.parentAssignmentId = response.data.id;
@@ -898,11 +922,15 @@ export default {
           // Go to previous child assignment
           this.currentChildIndex--;
           this.currentStep--;
-          this.loadChildAssignmentData(this.childAssignmentsQueue[this.currentChildIndex].id);
+          this.loadChildAssignmentData(
+            this.childAssignmentsQueue[this.currentChildIndex].id
+          );
         } else {
           // Go back to Step 2 (parent form)
           // Note: We don't reload parent data as it's already been saved
-          alert("Cannot go back to parent form after child assignments have been created. Use Cancel to exit.");
+          alert(
+            "Cannot go back to parent form after child assignments have been created. Use Cancel to exit."
+          );
         }
       } else {
         // Going back from Step 2 to Step 1
