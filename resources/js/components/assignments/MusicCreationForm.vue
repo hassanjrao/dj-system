@@ -146,25 +146,6 @@
       </v-col>
     </v-row>
 
-    <!-- Link Child Assignments -->
-    <v-divider class="my-4"></v-divider>
-    <v-subheader>PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader>
-    <v-row>
-      <v-col cols="12">
-        <v-autocomplete
-          v-model="localData.child_departments"
-          :items="availableChildDepartments"
-          item-text="name"
-          item-value="id"
-          label="Select departments for child assignments"
-          multiple
-          chips
-          small-chips
-          :loading="loadingChildDepartments"
-        ></v-autocomplete>
-      </v-col>
-    </v-row>
-
     <!-- Album Creation Dialog -->
     <v-dialog v-model="showAlbumDialog" max-width="500">
       <v-card>
