@@ -117,22 +117,6 @@ class LookupTableSeeder extends Seeder
             ReleaseTiming::create(['name' => $timing]);
         }
 
-        // Music Type Completion Days (default: 7 days before release for all types)
-        // This can be customized later through admin interface
-        $departments = Department::all();
-        $musicTypes = MusicType::all();
-        
-        foreach ($departments as $dept) {
-            foreach ($musicTypes as $musicType) {
-                // Default to 7 days before release, can be customized
-                MusicTypeCompletionDay::create([
-                    'music_type_id' => $musicType->id,
-                    'department_id' => $dept->id,
-                    'days_before_release' => 7,
-                ]);
-            }
-        }
-
         // Default Deliverables per Department
         $deliverables = [
             'Music Mastering' => [
@@ -185,7 +169,7 @@ class LookupTableSeeder extends Seeder
                 'Distribution - Graphic' => 'distribution-graphic',
                 'Distribution - Music' => 'distribution-music',
             ];
-            
+
             $slug = $slugMap[$deptName] ?? strtolower(str_replace([' ', '-'], '-', $deptName));
             $dept = Department::where('slug', $slug)->first();
             if ($dept) {
