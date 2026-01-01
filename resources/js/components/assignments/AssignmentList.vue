@@ -138,6 +138,23 @@
                   {{ formatStatus(item.assignment_status) }}
                 </v-chip>
               </template>
+              <template v-slot:item.actions="{ item }">
+                <v-tooltip bottom>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn
+                      icon
+                      small
+                      color="primary"
+                      v-bind="attrs"
+                      v-on="on"
+                      @click.stop="goToEdit(item)"
+                    >
+                      <v-icon small>mdi-pencil</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>Edit Assignment</span>
+                </v-tooltip>
+              </template>
             </v-data-table>
           </v-card-text>
         </v-card>
@@ -173,6 +190,13 @@ export default {
         { text: "Client", value: "client.name", sortable: false },
         { text: "Deliverables", value: "deliverables", sortable: false },
         { text: "Status", value: "assignment_status", sortable: false },
+        {
+          text: "Actions",
+          value: "actions",
+          sortable: false,
+          align: "center",
+          width: "100",
+        },
       ],
       searchTimeout: null,
       tabs: [

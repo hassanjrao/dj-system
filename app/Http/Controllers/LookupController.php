@@ -12,6 +12,7 @@ use App\Models\FootageType;
 use App\Models\ReleaseTiming;
 use App\Models\Department;
 use App\Models\Deliverable;
+use App\Models\Client;
 
 class LookupController extends Controller
 {
@@ -94,34 +95,34 @@ class LookupController extends Controller
         if ($department->slug === 'music-creation') {
             $childDepartmentSlugs = [
                 'music-mastering',
-                'graphic-design',
-                'video-filming',
-                'video-editing',
-                'distribution-video',
-                'distribution-graphic',
-                'distribution-music',
-                'marketing',
+                // 'graphic-design',
+                // 'video-filming',
+                // 'video-editing',
+                // 'distribution-video',
+                // 'distribution-graphic',
+                // 'distribution-music',
+                // 'marketing',
             ];
         } elseif ($department->slug === 'music-mastering') {
             $childDepartmentSlugs = [
-                'graphic-design',
-                'video-filming',
-                'video-editing',
-                'distribution-video',
-                'distribution-graphic',
-                'distribution-music',
-                'marketing',
+                // 'graphic-design',
+                // 'video-filming',
+                // 'video-editing',
+                // 'distribution-video',
+                // 'distribution-graphic',
+                // 'distribution-music',
+                // 'marketing',
             ];
         } elseif ($department->slug === 'graphic-design') {
             $childDepartmentSlugs = [
-                'distribution-graphic',
-                'marketing',
+                // 'distribution-graphic',
+                // 'marketing',
             ];
         } elseif ($department->slug === 'video-filming') {
             $childDepartmentSlugs = [
-                'video-editing',
-                'distribution-video',
-                'marketing',
+                // 'video-editing',
+                // 'distribution-video',
+                // 'marketing',
             ];
         } elseif ($department->slug === 'video-editing') {
             $childDepartmentSlugs = [
@@ -140,5 +141,34 @@ class LookupController extends Controller
             ->get(['id', 'name', 'slug']);
 
         return response()->json($childDepartments);
+    }
+
+    public function getInitialData()
+    {
+        $departments = Department::all();
+        return response()->json([
+            'departments' => Department::whereIn('id', [1,2])->get(),
+            'clients' => Client::orderBy('name')->get(),
+            'lookup_data' => [
+                'music_types' => MusicType::where('is_active', true)->get(),
+                'music_keys' => MusicKey::where('is_active', true)->get(),
+                'music_genres' => MusicGenre::where('is_active', true)->get(),
+                'music_creation_statuses' => MusicCreationStatus::where('is_active', true)->get(),
+                'edit_types' => EditType::where('is_active', true)->get(),
+                'footage_types' => FootageType::where('is_active', true)->get(),
+                'release_timings' => ReleaseTiming::where('is_active', true)->get(),
+            ],
+            'department_ids' => [
+                'musicCreationId' => $departments->where('slug', 'music-creation')->first()->id,
+                'musicMasteringId' => $departments->where('slug', 'music-mastering')->first()->id,
+                'graphicDesignId' => $departments->where('slug', 'graphic-design')->first()->id,
+                'videoFilmingId' => $departments->where('slug', 'video-filming')->first()->id,
+                'videoEditingId' => $departments->where('slug', 'video-editing')->first()->id,
+                'distributionVideoId' => $departments->where('slug', 'distribution-video')->first()->id,
+                'distributionGraphicId' => $departments->where('slug', 'distribution-graphic')->first()->id,
+                'distributionMusicId' => $departments->where('slug', 'distribution-music')->first()->id,
+                'marketingId' => $departments->where('slug', 'marketing')->first()->id,
+            ]
+        ]);
     }
 }

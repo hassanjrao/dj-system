@@ -8,8 +8,8 @@
     <div id="vue-app">
 
         <div class="content">
-            <assignment-form :departments="{{ json_encode($departments) }}" :clients="{{ json_encode($clients ?? []) }}"
-                :available-users="{{ json_encode($users ?? []) }}" :lookup-data="{{ json_encode($lookupData ?? []) }}"
+            <assignment-form
+                :is-edit="false"
                 :is-admin="{{ auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin') ? 'true' : 'false' }}">
             </assignment-form>
         </div>

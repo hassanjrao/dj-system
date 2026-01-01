@@ -78,13 +78,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('assignment-relationships/{id}', 'App\Http\Controllers\AssignmentRelationshipController@destroy');
 
     // Lookup routes
-    Route::get('lookup/music-types', 'App\Http\Controllers\LookupController@musicTypes');
-    Route::get('lookup/music-keys', 'App\Http\Controllers\LookupController@musicKeys');
-    Route::get('lookup/music-genres', 'App\Http\Controllers\LookupController@musicGenres');
-    Route::get('lookup/music-creation-statuses', 'App\Http\Controllers\LookupController@musicCreationStatuses');
-    Route::get('lookup/edit-types', 'App\Http\Controllers\LookupController@editTypes');
-    Route::get('lookup/footage-types', 'App\Http\Controllers\LookupController@footageTypes');
-    Route::get('lookup/release-timings', 'App\Http\Controllers\LookupController@releaseTimings');
+    Route::get('lookup/get-initial-data', 'App\Http\Controllers\LookupController@getInitialData');
     Route::get('lookup/departments', 'App\Http\Controllers\LookupController@departments');
     Route::get('lookup/deliverables', 'App\Http\Controllers\LookupController@deliverables');
     Route::get('lookup/child-departments', 'App\Http\Controllers\LookupController@childDepartments');

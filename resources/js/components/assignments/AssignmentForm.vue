@@ -159,7 +159,7 @@
 
           <!-- Department-specific forms -->
           <MusicCreationForm
-            v-if="formData.department_id === musicCreationDeptId"
+            v-if="formData.department_id === departmentIds.musicCreationId"
             v-model="formData"
             :is-child="isChild"
             :parent-data="parentData"
@@ -169,54 +169,13 @@
           />
 
           <MusicMasteringForm
-            v-else-if="formData.department_id === musicMasteringDeptId"
+            v-else-if="formData.department_id === departmentIds.musicMasteringId"
             v-model="formData"
             :is-child="isChild"
             :parent-data="parentData"
             :lookup-data="lookupData"
             :available-songs="availableSongs"
             :selected-department-id="formData.department_id || null"
-            @update:modelValue="updateFormData"
-          />
-
-          <GraphicDesignForm
-            v-else-if="formData.department_id === graphicDesignDeptId"
-            v-model="formData"
-            :is-child="isChild"
-            :parent-data="parentData"
-            :lookup-data="lookupData"
-            :available-assignments="availableAssignments"
-            @update:modelValue="updateFormData"
-          />
-
-          <VideoFilmingForm
-            v-else-if="formData.department_id === videoFilmingDeptId"
-            v-model="formData"
-            :is-child="isChild"
-            :parent-data="parentData"
-            :lookup-data="lookupData"
-            :available-assignments="availableAssignments"
-            @update:modelValue="updateFormData"
-          />
-
-          <VideoEditingForm
-            v-else-if="formData.department_id === videoEditingDeptId"
-            v-model="formData"
-            :is-child="isChild"
-            :parent-data="parentData"
-            :lookup-data="lookupData"
-            :available-assignments="availableAssignments"
-            @update:modelValue="updateFormData"
-          />
-
-          <DistributionForm
-            v-else-if="isDistributionDept(formData.department_id)"
-            v-model="formData"
-            :is-child="isChild"
-            :parent-data="parentData"
-            :lookup-data="lookupData"
-            :available-assignments="availableAssignments"
-            :distribution-type="getDistributionType(formData.department_id)"
             @update:modelValue="updateFormData"
           />
 
@@ -352,7 +311,7 @@
 
           <!-- Department-specific forms for child assignments -->
           <MusicCreationForm
-            v-if="formData.department_id === musicCreationDeptId"
+            v-if="formData.department_id === departmentIds.musicCreationId"
             v-model="formData"
             :is-child="true"
             :parent-data="parentAssignmentData"
@@ -362,53 +321,12 @@
           />
 
           <MusicMasteringForm
-            v-else-if="formData.department_id === musicMasteringDeptId"
+            v-else-if="formData.department_id === departmentIds.musicMasteringId"
             v-model="formData"
             :is-child="true"
             :parent-data="parentAssignmentData"
             :lookup-data="lookupData"
             :available-songs="availableSongs"
-            @update:modelValue="updateFormData"
-          />
-
-          <GraphicDesignForm
-            v-else-if="formData.department_id === graphicDesignDeptId"
-            v-model="formData"
-            :is-child="true"
-            :parent-data="parentAssignmentData"
-            :lookup-data="lookupData"
-            :available-assignments="availableAssignments"
-            @update:modelValue="updateFormData"
-          />
-
-          <VideoFilmingForm
-            v-else-if="formData.department_id === videoFilmingDeptId"
-            v-model="formData"
-            :is-child="true"
-            :parent-data="parentAssignmentData"
-            :lookup-data="lookupData"
-            :available-assignments="availableAssignments"
-            @update:modelValue="updateFormData"
-          />
-
-          <VideoEditingForm
-            v-else-if="formData.department_id === videoEditingDeptId"
-            v-model="formData"
-            :is-child="true"
-            :parent-data="parentAssignmentData"
-            :lookup-data="lookupData"
-            :available-assignments="availableAssignments"
-            @update:modelValue="updateFormData"
-          />
-
-          <DistributionForm
-            v-else-if="isDistributionDept(formData.department_id)"
-            v-model="formData"
-            :is-child="true"
-            :parent-data="parentAssignmentData"
-            :lookup-data="lookupData"
-            :available-assignments="availableAssignments"
-            :distribution-type="getDistributionType(formData.department_id)"
             @update:modelValue="updateFormData"
           />
 
@@ -542,22 +460,6 @@ export default {
       type: Object,
       default: () => ({}),
     },
-    departments: {
-      type: Array,
-      default: () => [],
-    },
-    clients: {
-      type: Array,
-      default: () => [],
-    },
-    availableUsers: {
-      type: Array,
-      default: () => [],
-    },
-    lookupData: {
-      type: Object,
-      default: () => ({}),
-    },
     isEdit: {
       type: Boolean,
       default: false,
@@ -586,10 +488,14 @@ export default {
       step1Valid: false,
       loading: false,
       loadingUsers: false,
+      loadingInitialData: false,
       formData: { ...this.modelValue },
       selectedClient: null,
       filteredUsers: [],
-      localClients: [...this.clients],
+      departments: [],
+      clients: [],
+      localClients: [],
+      lookupData: {},
       showClientDialog: false,
       clientFormValid: false,
       departmentSearch: null,
@@ -600,12 +506,6 @@ export default {
         phone: "",
         notes: "",
       },
-      musicCreationDeptId: null,
-      musicMasteringDeptId: null,
-      graphicDesignDeptId: null,
-      videoFilmingDeptId: null,
-      videoEditingDeptId: null,
-      distributionDeptIds: [],
       newNote: {
         note: "",
         note_for: null,
@@ -622,29 +522,39 @@ export default {
       parentAssignmentData: null,
       childFormLoading: false,
       availableSongs: [],
+      departmentIds: {},
     };
   },
-  mounted() {
-    console.log("mountedddd", this.departments);
-    this.initializeDepartmentIds();
-    this.initializeClient();
-    this.initializeNotes();
-    this.loadUsersForDepartment();
-    this.loadAvailableSongs();
+  async mounted() {
+    this.loadingInitialData = true;
+    try {
+      await this.getInitialData();
+      this.initializeClient();
+      this.initializeNotes();
+      this.loadUsersForDepartment();
+      this.loadAvailableSongs();
+    } catch (error) {
+      console.error("Error loading initial data:", error);
+      alert("Failed to load initial data. Please refresh the page.");
+    } finally {
+      this.loadingInitialData = false;
+    }
   },
   methods: {
-    initializeDepartmentIds() {
-      // Find department IDs by slug or name
-      this.musicCreationDeptId = this.findDeptId("Music Creation");
-      this.musicMasteringDeptId = this.findDeptId("Music Mastering");
-      this.graphicDesignDeptId = this.findDeptId("Graphic Design");
-      this.videoFilmingDeptId = this.findDeptId("Video Filming");
-      this.videoEditingDeptId = this.findDeptId("Video Editing");
-      this.distributionDeptIds = [
-        this.findDeptId("Distribution - Video"),
-        this.findDeptId("Distribution - Graphic"),
-        this.findDeptId("Distribution - Music"),
-      ].filter((id) => id !== null);
+    async getInitialData() {
+      try {
+        // Fetch all initial data in a single API call
+        const response = await axios.get("/lookup/get-initial-data");
+
+        this.departments = response.data.departments;
+        this.clients = response.data.clients;
+        this.localClients = [...this.clients];
+        this.lookupData = response.data.lookup_data;
+        this.departmentIds = response.data.department_ids;
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+        throw error;
+      }
     },
     initializeClient() {
       // Set selected client if editing and client_id exists
@@ -654,19 +564,6 @@ export default {
           this.selectedClient = client.id;
         }
       }
-    },
-    findDeptId(name) {
-      const dept = this.departments.find((d) => d.name === name);
-      return dept ? dept.id : null;
-    },
-    isDistributionDept(deptId) {
-      return this.distributionDeptIds.includes(deptId);
-    },
-    getDistributionType(deptId) {
-      if (deptId === this.findDeptId("Distribution - Video")) return "video";
-      if (deptId === this.findDeptId("Distribution - Graphic")) return "graphic";
-      if (deptId === this.findDeptId("Distribution - Music")) return "music";
-      return null;
     },
     onDepartmentChange() {
       // Reset department-specific fields when department changes
@@ -1009,13 +906,6 @@ export default {
         this.formData = { ...newVal };
         this.initializeClient();
         this.initializeNotes();
-      },
-      deep: true,
-    },
-    clients: {
-      handler(newClients) {
-        this.localClients = [...newClients];
-        this.initializeClient();
       },
       deep: true,
     },
