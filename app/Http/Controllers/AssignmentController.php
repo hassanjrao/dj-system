@@ -184,10 +184,10 @@ class AssignmentController extends Controller
 
     private function handleDeliverables(array $deliverableIds = [], Assignment $assignment)
     {
-        $deliverableIds = $this->preSelectDeliverables(
-            $assignment->department_id,
-            $deliverableIds
-        );
+        // $deliverableIds = $this->preSelectDeliverables(
+        //     $assignment->department_id,
+        //     $deliverableIds
+        // );
         $assignment->deliverables()->sync($deliverableIds);
     }
 
@@ -552,9 +552,9 @@ class AssignmentController extends Controller
         }
 
         // Otherwise, get all active deliverables for the department
-        $deliverables = Deliverable::where('department_id', $departmentId)
-            ->pluck('id')
-            ->toArray();
+        // $deliverables = Deliverable::where('department_id', $departmentId)
+        //     ->pluck('id')
+        //     ->toArray();
 
         return $deliverables;
     }

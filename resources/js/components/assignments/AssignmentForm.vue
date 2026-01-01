@@ -788,7 +788,7 @@ export default {
                 this.loadChildAssignmentData(this.childAssignmentsQueue[0].id);
               } else {
                 // No child assignments, redirect to assignments list
-                window.location.href = "/assignments";
+                window.location.href = "/assignments?department_id=" + this.formData.department_id;
               }
             })
             .catch((error) => {
