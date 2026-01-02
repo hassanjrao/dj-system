@@ -210,6 +210,10 @@ export default {
       type: Object,
       default: () => null,
     },
+    assignmentData: {
+      type: Object,
+      default: () => null,
+    },
   },
   data() {
     return {
@@ -243,26 +247,71 @@ export default {
     if (this.parentData) {
       this.populateFromParent();
     }
-    console.log("modelValue", this.lookupData);
-    if (this.modelValue.song) {
-      // If editing and song exists, populate song data
-      this.songData = {
-        name: this.modelValue.song.name || "",
-        version: this.modelValue.song.version || "",
-        album_id: this.modelValue.song.album_id || null,
-        music_type_id: this.modelValue.song.music_type_id || null,
-        music_genre_id: this.modelValue.song.music_genre_id || null,
-        bpm: this.modelValue.song.bpm || null,
-        music_key_id: this.modelValue.song.music_key_id || null,
-        release_date: this.modelValue.song.release_date || "",
-        completion_date: this.modelValue.song.completion_date || "",
-        artists: this.modelValue.song.artists
-          ? this.modelValue.song.artists.map((a) => a.id)
-          : [],
-      };
-    }
+    // Populate song data from assignmentData (edit mode) or modelValue (create mode)
+    this.populateFromAssignmentData();
   },
   methods: {
+    populateFromAssignmentData() {
+      // Primary source: assignmentData (for edit mode)
+      // Fallback: modelValue.song (for create mode or if assignmentData not available)
+      const songSource = this.assignmentData?.song || this.modelValue?.song;
+
+      if (songSource) {
+        // Format release_date for datetime-local input (YYYY-MM-DDTHH:mm)
+        let releaseDate = "";
+        if (songSource.release_date) {
+          const date = new Date(songSource.release_date);
+          if (!isNaN(date.getTime())) {
+            // Format as YYYY-MM-DDTHH:mm for datetime-local
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            const hours = String(date.getHours()).padStart(2, "0");
+            const minutes = String(date.getMinutes()).padStart(2, "0");
+            releaseDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+          }
+        }
+
+        // Format completion_date for date input (YYYY-MM-DD)
+        let completionDate = "";
+        if (songSource.completion_date) {
+          const date = new Date(songSource.completion_date);
+          if (!isNaN(date.getTime())) {
+            completionDate = date.toISOString().split("T")[0];
+          }
+        }
+
+        // Get artist IDs - check multiple sources
+        let artists = [];
+        if (this.assignmentData?.song_artists) {
+          artists = this.assignmentData.song_artists;
+        } else if (songSource.artists && Array.isArray(songSource.artists)) {
+          artists = songSource.artists.map((a) => (typeof a === "object" ? a.id : a));
+        } else if (this.modelValue?.song_artists) {
+          artists = this.modelValue.song_artists;
+        }
+
+        this.songData = {
+          name: songSource.name || "",
+          version: songSource.version || "",
+          album_id: songSource.album_id || null,
+          music_type_id: songSource.music_type_id || null,
+          music_genre_id: songSource.music_genre_id || null,
+          bpm: songSource.bpm || null,
+          music_key_id: songSource.music_key_id || null,
+          release_date: releaseDate,
+          completion_date: completionDate,
+          artists: artists,
+        };
+
+        // Also update localData with music_creation_status_id if available
+        if (this.assignmentData?.music_creation_status_id) {
+          this.localData.music_creation_status_id = this.assignmentData.music_creation_status_id;
+        } else if (this.modelValue?.music_creation_status_id) {
+          this.localData.music_creation_status_id = this.modelValue.music_creation_status_id;
+        }
+      }
+    },
     populateFromParent() {
       // Auto-populate song data from parent if this is a child assignment
       if (this.parentData.song) {
@@ -430,9 +479,32 @@ export default {
     },
   },
   watch: {
+    assignmentData: {
+      handler(newVal) {
+        // When assignmentData changes (e.g., loaded asynchronously), populate song data
+        if (newVal && newVal.song) {
+          this.populateFromAssignmentData();
+        }
+      },
+      deep: true,
+      immediate: true,
+    },
     modelValue: {
       handler(newVal) {
         this.localData = { ...newVal };
+        // If modelValue.song changes and assignmentData not available, populate from modelValue
+        if (newVal.song && !this.assignmentData) {
+          this.populateFromAssignmentData();
+        }
+      },
+      deep: true,
+    },
+    "modelValue.song": {
+      handler(newSong) {
+        // Watch specifically for song changes in modelValue
+        if (newSong && !this.assignmentData) {
+          this.populateFromAssignmentData();
+        }
       },
       deep: true,
     },

@@ -164,6 +164,10 @@ export default {
       type: Array,
       default: () => [],
     },
+    assignmentData: {
+      type: Object,
+      default: () => null,
+    },
   },
   data() {
     return {
@@ -210,11 +214,73 @@ export default {
   mounted() {
     this.loadDeliverables();
     this.loadParentDepartments();
+    // Populate from assignmentData (edit mode) or modelValue (create mode)
+    this.populateFromAssignmentData();
     if (this.isChild && this.parentData) {
       this.populateFromParent();
     }
   },
   methods: {
+    populateFromAssignmentData() {
+      // Primary source: assignmentData (for edit mode)
+      // Fallback: modelValue (for create mode or if assignmentData not available)
+      const dataSource = this.assignmentData || this.modelValue;
+
+      if (dataSource) {
+        // Populate assignment_name
+        if (dataSource.assignment_name) {
+          this.localData.assignment_name = dataSource.assignment_name;
+          // Determine if standalone based on whether parent_assignment_id exists
+          this.isStandalone = !dataSource.parent_assignment_id;
+        }
+
+        // Populate parent_assignment_id
+        if (dataSource.parent_assignment_id) {
+          this.localData.parent_assignment_id = dataSource.parent_assignment_id;
+          this.isStandalone = false;
+          // Find parent department
+          const parent = this.availableAssignments.find(
+            (a) => a.id === dataSource.parent_assignment_id
+          );
+          if (parent) {
+            this.selectedParentDepartment = parent.department_id;
+          }
+        }
+
+        // Populate release_timing
+        if (dataSource.release_timing) {
+          this.localData.release_timing = dataSource.release_timing;
+        }
+
+        // Populate edit_type_id
+        if (dataSource.edit_type_id) {
+          this.localData.edit_type_id = dataSource.edit_type_id;
+        }
+
+        // Populate footage_type_id
+        if (dataSource.footage_type_id) {
+          this.localData.footage_type_id = dataSource.footage_type_id;
+        }
+
+        // Populate completion_date
+        if (dataSource.completion_date) {
+          // Format for date input (YYYY-MM-DD)
+          const date = new Date(dataSource.completion_date);
+          if (!isNaN(date.getTime())) {
+            this.localData.completion_date = date.toISOString().split('T')[0];
+          }
+        }
+
+        // Populate deliverable_ids
+        if (dataSource.deliverables && Array.isArray(dataSource.deliverables)) {
+          this.localData.deliverable_ids = dataSource.deliverables.map(d => 
+            typeof d === 'object' ? d.id : d
+          );
+        } else if (dataSource.deliverable_ids && Array.isArray(dataSource.deliverable_ids)) {
+          this.localData.deliverable_ids = dataSource.deliverable_ids;
+        }
+      }
+    },
     populateFromParent() {
       if (this.parentData.song && this.parentData.song.release_date) {
         this.localData.release_date = this.parentData.song.release_date;
@@ -355,9 +421,23 @@ export default {
     },
   },
   watch: {
+    assignmentData: {
+      handler(newVal) {
+        // When assignmentData changes (e.g., loaded asynchronously), populate form data
+        if (newVal) {
+          this.populateFromAssignmentData();
+        }
+      },
+      deep: true,
+      immediate: true,
+    },
     modelValue: {
       handler(newVal) {
         this.localData = { ...newVal, deliverable_ids: newVal.deliverable_ids || [] };
+        // If modelValue changes and assignmentData not available, populate from modelValue
+        if (newVal && !this.assignmentData) {
+          this.populateFromAssignmentData();
+        }
       },
       deep: true,
     },

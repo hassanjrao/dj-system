@@ -165,6 +165,7 @@
             :parent-data="parentData"
             :lookup-data="lookupData"
             :departments="departments"
+            :assignment-data="currentAssignmentData"
             @update:modelValue="updateFormData"
           />
 
@@ -176,6 +177,7 @@
             :lookup-data="lookupData"
             :available-songs="availableSongs"
             :selected-department-id="formData.department_id || null"
+            :assignment-data="currentAssignmentData"
             @update:modelValue="updateFormData"
           />
 
@@ -317,6 +319,7 @@
             :parent-data="parentAssignmentData"
             :lookup-data="lookupData"
             :departments="departments"
+            :assignment-data="currentAssignmentData"
             @update:modelValue="updateFormData"
           />
 
@@ -327,6 +330,8 @@
             :parent-data="parentAssignmentData"
             :lookup-data="lookupData"
             :available-songs="availableSongs"
+            :selected-department-id="formData.department_id || null"
+            :assignment-data="currentAssignmentData"
             @update:modelValue="updateFormData"
           />
 
@@ -464,6 +469,10 @@ export default {
       type: Boolean,
       default: false,
     },
+    assignmentData: {
+      type: Object,
+      default: () => null,
+    },
     isChild: {
       type: Boolean,
       default: false,
@@ -523,6 +532,7 @@ export default {
       childFormLoading: false,
       availableSongs: [],
       departmentIds: {},
+      loadedAssignmentData: null, // For storing assignment data loaded from API
     };
   },
   async mounted() {
@@ -530,9 +540,32 @@ export default {
     try {
       await this.getInitialData();
 
-      // If editing, load assignment data from API
-      if (this.isEdit && this.formData.id) {
-        await this.loadAssignmentData(this.formData.id);
+      // If editing, use assignmentData prop if provided, otherwise load from API
+      if (this.isEdit) {
+        const assignmentData = this.assignmentData || this.loadedAssignmentData;
+        if (assignmentData) {
+          // Use assignmentData from prop or loaded data
+          this.formData = { ...this.formData, ...assignmentData };
+
+          // Update parent assignment data if it exists
+          if (assignmentData.parent_assignment) {
+            this.parentAssignmentData = assignmentData.parent_assignment;
+          }
+
+          // Ensure song_artists is properly set
+          if (assignmentData.song_artists) {
+            this.formData.song_artists = assignmentData.song_artists;
+          } else if (assignmentData.song && assignmentData.song.artists) {
+            this.formData.song_artists = assignmentData.song.artists.map(
+              (artist) => artist.id
+            );
+          } else {
+            this.formData.song_artists = [];
+          }
+        } else if (this.formData.id) {
+          // Load from API if assignmentData prop not provided
+          await this.loadAssignmentData(this.formData.id);
+        }
       }
 
       this.initializeClient();
@@ -696,7 +729,7 @@ export default {
       this.$emit("update:modelValue", this.formData);
     },
     async loadAssignmentData(assignmentId) {
-        console.log('loading assignment data', assignmentId);
+      console.log("loading assignment data", assignmentId);
       try {
         const response = await axios.get(`/assignments/${assignmentId}/edit`, {
           headers: {
@@ -727,7 +760,8 @@ export default {
           this.formData.song_artists = [];
         }
 
-        console.log('formData', this.formData);
+        this.loadedAssignmentData = assignmentData;
+        this.$emit("update:modelValue", this.formData);
       } catch (error) {
         console.error("Error loading assignment data:", error);
         throw error;
@@ -954,6 +988,12 @@ export default {
     getNoteForLabel(value) {
       const option = this.noteForOptions.find((opt) => opt.value === value);
       return option ? option.label : value;
+    },
+  },
+  computed: {
+    currentAssignmentData() {
+      // Return prop if available, otherwise return loaded data
+      return this.assignmentData || this.loadedAssignmentData;
     },
   },
   watch: {

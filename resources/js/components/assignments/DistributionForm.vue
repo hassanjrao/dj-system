@@ -99,6 +99,10 @@ export default {
       type: String,
       default: "video", // video, graphic, music
     },
+    assignmentData: {
+      type: Object,
+      default: () => null,
+    },
   },
   data() {
     return {
@@ -134,11 +138,49 @@ export default {
   mounted() {
     this.loadDeliverables();
     this.loadParentDepartments();
+    // Populate from assignmentData (edit mode) or modelValue (create mode)
+    this.populateFromAssignmentData();
     if (this.isChild && this.parentData) {
       this.populateFromParent();
     }
   },
   methods: {
+    populateFromAssignmentData() {
+      // Primary source: assignmentData (for edit mode)
+      // Fallback: modelValue (for create mode or if assignmentData not available)
+      const dataSource = this.assignmentData || this.modelValue;
+
+      if (dataSource) {
+        // Populate assignment_name
+        if (dataSource.assignment_name) {
+          this.localData.assignment_name = dataSource.assignment_name;
+          // Determine if standalone based on whether parent_assignment_id exists
+          this.isStandalone = !dataSource.parent_assignment_id;
+        }
+
+        // Populate parent_assignment_id
+        if (dataSource.parent_assignment_id) {
+          this.localData.parent_assignment_id = dataSource.parent_assignment_id;
+          this.isStandalone = false;
+          // Find parent department
+          const parent = this.availableAssignments.find(
+            (a) => a.id === dataSource.parent_assignment_id
+          );
+          if (parent) {
+            this.selectedParentDepartment = parent.department_id;
+          }
+        }
+
+        // Populate deliverable_ids
+        if (dataSource.deliverables && Array.isArray(dataSource.deliverables)) {
+          this.localData.deliverable_ids = dataSource.deliverables.map(d => 
+            typeof d === 'object' ? d.id : d
+          );
+        } else if (dataSource.deliverable_ids && Array.isArray(dataSource.deliverable_ids)) {
+          this.localData.deliverable_ids = dataSource.deliverable_ids;
+        }
+      }
+    },
     populateFromParent() {
       this.preSelectDeliverables();
     },
@@ -226,9 +268,23 @@ export default {
     },
   },
   watch: {
+    assignmentData: {
+      handler(newVal) {
+        // When assignmentData changes (e.g., loaded asynchronously), populate form data
+        if (newVal) {
+          this.populateFromAssignmentData();
+        }
+      },
+      deep: true,
+      immediate: true,
+    },
     modelValue: {
       handler(newVal) {
         this.localData = { ...newVal, deliverable_ids: newVal.deliverable_ids || [] };
+        // If modelValue changes and assignmentData not available, populate from modelValue
+        if (newVal && !this.assignmentData) {
+          this.populateFromAssignmentData();
+        }
       },
       deep: true,
     },
