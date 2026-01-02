@@ -19,6 +19,8 @@ Vue.component('video-filming-form', require('./components/assignments/VideoFilmi
 Vue.component('video-editing-form', require('./components/assignments/VideoEditingForm.vue').default);
 Vue.component('distribution-form', require('./components/assignments/DistributionForm.vue').default);
 Vue.component('assignment-list', require('./components/assignments/AssignmentList.vue').default);
+Vue.component('user-list', require('./components/users/UserList.vue').default);
+Vue.component('user-form-dialog', require('./components/users/UserFormDialog.vue').default);
 
 
 const app = new Vue({

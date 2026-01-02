@@ -39,9 +39,20 @@ Route::middleware(['auth'])->group(function () {
     Route::post('assignment-relationships', 'App\Http\Controllers\AssignmentRelationshipController@store');
     Route::delete('assignment-relationships/{id}', 'App\Http\Controllers\AssignmentRelationshipController@destroy');
 
-    // User routes
-    Route::get('users/{departmentId}', 'App\Http\Controllers\UserController@getByDepartment');
+    // User routes - grouped with prefix 'users'
+    Route::prefix('users')->group(function () {
+        // User management routes (super-admin only) - specific routes first
+        Route::get('/', 'App\Http\Controllers\UserController@index')->name('users.index');
+        Route::get('/list', 'App\Http\Controllers\UserController@getUsers');
+        Route::get('/roles', 'App\Http\Controllers\UserController@getRoles');
+        Route::get('/available-for-assignment', 'App\Http\Controllers\UserController@getAvailableForAssignment');
+        Route::get('/by-department/{departmentId}', 'App\Http\Controllers\UserController@getByDepartment');
+        Route::post('/', 'App\Http\Controllers\UserController@store');
+        Route::put('/{id}', 'App\Http\Controllers\UserController@update');
 
+        // Parameterized routes last to avoid conflicts
+        Route::get('/{departmentId}', 'App\Http\Controllers\UserController@getByDepartment');
+    });
 
     // Client routes
     Route::get('clients', 'App\Http\Controllers\ClientController@index');
@@ -56,10 +67,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('albums/{id}', 'App\Http\Controllers\AlbumController@show');
     Route::put('albums/{id}', 'App\Http\Controllers\AlbumController@update');
     Route::delete('albums/{id}', 'App\Http\Controllers\AlbumController@destroy');
-
-    // User routes
-    Route::get('users/by-department/{departmentId}', 'App\Http\Controllers\UserController@getByDepartment');
-    Route::get('users/available-for-assignment', 'App\Http\Controllers\UserController@getAvailableForAssignment');
 
     // Artist routes
     Route::get('artists', 'App\Http\Controllers\AssignmentController@getArtists');

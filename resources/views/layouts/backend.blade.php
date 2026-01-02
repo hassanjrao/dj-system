@@ -182,6 +182,15 @@
                             </a>
                         </li>
                         @auth
+                            {{-- @if (auth()->user()->hasRole('super-admin')) --}}
+                                <li class="nav-main-item">
+                                    <a class="nav-main-link{{ request()->is('users') ? ' active' : '' }}"
+                                        href="{{ route('users.index') }}">
+                                        <i class="nav-main-link-icon si si-users"></i>
+                                        <span class="nav-main-link-name">Users</span>
+                                    </a>
+                                </li>
+                            {{-- @endif --}}
                             @php
                                 // if super admin, show all departments
                                 if (auth()->user()->hasRole('super-admin')) {
@@ -195,8 +204,8 @@
                             @if ($departments->count() > 0)
                                 <li class="nav-main-item{{ $isAssignmentsActive ? ' open' : '' }}">
                                     <a class="nav-main-link nav-main-link-submenu" data-toggle="submenu"
-                                        aria-haspopup="true"
-                                        aria-expanded="{{ $isAssignmentsActive ? 'true' : 'false' }}" href="#">
+                                        aria-haspopup="true" aria-expanded="{{ $isAssignmentsActive ? 'true' : 'false' }}"
+                                        href="#">
                                         <i class="nav-main-link-icon si si-briefcase"></i>
                                         <span class="nav-main-link-name">My Assignments</span>
                                     </a>
@@ -254,7 +263,7 @@
                     <!-- END Open Search Section -->
 
                     <!-- Search Form (visible on larger screens) -->
-                 
+
                     <!-- END Search Form -->
                 </div>
                 <!-- END Left Section -->
