@@ -9,23 +9,7 @@ class Assignment extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'client_id',
-        'department_id',
-        'assigned_to_id',
-        'created_by',
-        'assignment_name',
-        'completion_date',
-        'release_date',
-        'release_timing',
-        'reference_links',
-        'assignment_status',
-        'music_creation_status_id',
-        'edit_type_id',
-        'footage_type_id',
-        'parent_assignment_id',
-        'song_id',
-    ];
+    protected $guarded = [];
 
     protected $casts = [
         'completion_date' => 'date',

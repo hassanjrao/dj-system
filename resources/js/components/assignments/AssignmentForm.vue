@@ -547,6 +547,20 @@ export default {
           // Use assignmentData from prop or loaded data
           this.formData = { ...this.formData, ...assignmentData };
 
+          // Set child_departments if childAssignments exists
+          if (
+            assignmentData.childAssignments &&
+            Array.isArray(assignmentData.childAssignments)
+          ) {
+            this.formData.child_departments = assignmentData.childAssignments.map(
+              (child) => child.department_id
+            );
+          } else {
+            this.formData.child_departments = [];
+          }
+
+          console.log("formData", this.formData);
+
           // Update parent assignment data if it exists
           if (assignmentData.parent_assignment) {
             this.parentAssignmentData = assignmentData.parent_assignment;
@@ -742,6 +756,18 @@ export default {
         // Populate form data with assignment data
         // Merge to preserve any existing formData properties
         this.formData = { ...this.formData, ...assignmentData };
+
+        // Set child_departments if childAssignments exists
+        if (
+          assignmentData.childAssignments &&
+          Array.isArray(assignmentData.childAssignments)
+        ) {
+          this.formData.child_departments = assignmentData.childAssignments.map(
+            (child) => child.department_id
+          );
+        } else {
+          this.formData.child_departments = [];
+        }
 
         // Update parent assignment data if it exists
         if (assignmentData.parent_assignment) {

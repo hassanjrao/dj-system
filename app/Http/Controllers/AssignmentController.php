@@ -46,7 +46,7 @@ class AssignmentController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'status', 'parentAssignment.song.artists'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'status', 'parentAssignment.song.artists', 'childAssignments'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
@@ -66,6 +66,9 @@ class AssignmentController extends Controller
                 'note_for' => $note->note_for,
             ];
         })->toArray();
+
+        // Ensure childAssignments is always an array (even if empty)
+        $assignment->childAssignments = $assignment->childAssignments ? $assignment->childAssignments->toArray() : [];
 
         $departments = Department::all();
         $clients = \App\Models\Client::orderBy('name')->get();
@@ -209,16 +212,59 @@ class AssignmentController extends Controller
         return $childAssignments;
     }
 
-    private function handleNotes(array $notes, Assignment $assignment)
+    private function handleNotes(array $notes, Assignment $assignment, bool $isUpdate = false)
     {
-        foreach ($notes as $noteData) {
-            if (!empty(trim($noteData['note']))) {
-                Note::create([
-                    'assignment_id' => $assignment->id,
-                    'note' => trim($noteData['note']),
-                    'created_by' => $assignment->created_by,
-                    'note_for' => $noteData['note_for'],
-                ]);
+        if ($isUpdate) {
+            // For updates, sync notes: delete removed ones, keep existing ones, create new ones
+            // This preserves created_at timestamps for existing notes
+
+            // Get existing notes and create a map by (note + note_for) as key
+            $existingNotes = $assignment->notes()->get();
+            $existingNotesMap = [];
+            foreach ($existingNotes as $existingNote) {
+                $key = trim($existingNote->note) . '|' . $existingNote->note_for;
+                $existingNotesMap[$key] = $existingNote;
+            }
+
+            // Create a map of requested notes
+            $requestedNotesMap = [];
+            foreach ($notes as $noteData) {
+                if (!empty(trim($noteData['note']))) {
+                    $key = trim($noteData['note']) . '|' . $noteData['note_for'];
+                    $requestedNotesMap[$key] = $noteData;
+                }
+            }
+
+            // Delete notes that exist in DB but not in request
+            foreach ($existingNotesMap as $key => $existingNote) {
+                if (!isset($requestedNotesMap[$key])) {
+                    $existingNote->delete();
+                }
+            }
+
+            // Create notes that exist in request but not in DB
+            foreach ($requestedNotesMap as $key => $noteData) {
+                if (!isset($existingNotesMap[$key])) {
+                    Note::create([
+                        'assignment_id' => $assignment->id,
+                        'note' => trim($noteData['note']),
+                        'created_by' => $assignment->created_by,
+                        'note_for' => $noteData['note_for'],
+                    ]);
+                }
+                // If note exists in both, we keep it as-is (preserving created_at)
+            }
+        } else {
+            // For creates, just create notes from request
+            foreach ($notes as $noteData) {
+                if (!empty(trim($noteData['note']))) {
+                    Note::create([
+                        'assignment_id' => $assignment->id,
+                        'note' => trim($noteData['note']),
+                        'created_by' => $assignment->created_by,
+                        'note_for' => $noteData['note_for'],
+                    ]);
+                }
             }
         }
     }
@@ -241,10 +287,26 @@ class AssignmentController extends Controller
             'song_artists.*' => 'exists:artists,id',
         ]));
 
-        // Handle song creation/selection for Music Creation
+        // Handle song creation/selection/update for Music Creation
         if ($request->song_id) {
-            // Use existing song
+            // Use existing song - update if song data is provided
             $validated['song_id'] = $request->song_id;
+
+            $song = Song::findOrFail($request->song_id);
+            $songData = [
+                'name' => $request->song_name ?? $song->name,
+                'version' => $request->song_version ?? $song->version,
+                'album_id' => $request->song_album_id ?? $song->album_id,
+                'music_type_id' => $request->song_music_type_id,
+                'music_genre_id' => $request->song_music_genre_id ?? $song->music_genre_id,
+                'bpm' => $request->song_bpm ?? $song->bpm,
+                'music_key_id' => $request->song_music_key_id ?? $song->music_key_id,
+                'release_date' => $request->song_release_date ?? $song->release_date,
+                'completion_date' => $request->song_completion_date ?? $song->completion_date,
+            ];
+
+            $song->update($songData);
+
         } elseif ($request->song_name) {
             // Create new song
             $songData = [
@@ -261,25 +323,30 @@ class AssignmentController extends Controller
             $song = Song::create(array_filter($songData));
             $validated['song_id'] = $song->id;
 
-            // Handle song artists
-            if ($request->has('song_artists') && is_array($request->song_artists)) {
-                foreach ($request->song_artists as $artistId) {
-                    if (!empty($artistId)) {
-                        $song->artists()->attach($artistId);
-                    }
-                }
-            }
+
         }
 
-        $assignment->update([
-            'song_id' => $validated['song_id'],
-            'music_creation_status_id' => $validated['music_creation_status_id'],
-        ]);
+        // Handle song artists
+        if ($request->has('song_artists') && is_array($request->song_artists)) {
+            $song->artists()->sync($request->song_artists);
+        }
+
+        $updateData = [];
+        if (isset($validated['song_id'])) {
+            $updateData['song_id'] = $validated['song_id'];
+        }
+        if (isset($validated['music_creation_status_id'])) {
+            $updateData['music_creation_status_id'] = $validated['music_creation_status_id'];
+        }
+
+        if (!empty($updateData)) {
+            $assignment->update($updateData);
+        }
 
         return $assignment;
     }
 
-    private function processMusicMasteringData(Request $request, array $validated, Assignment $assignment): Assignment
+    private function processMusicMasteringData(Request $request, array $validated, Assignment $assignment, bool $isUpdate = false): Assignment
     {
         $validated = array_merge($validated, $request->validate([
             'song_id' => 'required|exists:songs,id',
@@ -288,16 +355,18 @@ class AssignmentController extends Controller
         ]));
 
         // For child assignments, auto-populate from parent
-        if ($request->parent_assignment_id) {
+        if ($request->parent_assignment_id && !$isUpdate) {
             $parent = Assignment::findOrFail($request->parent_assignment_id);
             if ($parent->song_id) {
                 $validated['song_id'] = $parent->song_id;
             }
         }
 
-        $assignment->update([
-            'song_id' => $validated['song_id']
-        ]);
+        if (isset($validated['song_id'])) {
+            $assignment->update([
+                'song_id' => $validated['song_id']
+            ]);
+        }
 
         return $assignment;
 
@@ -372,43 +441,98 @@ class AssignmentController extends Controller
             'assigned_to_id' => 'nullable|exists:users,id',
             'assignment_name' => 'nullable|string|max:255',
             'completion_date' => 'nullable|date',
-            'release_date' => 'nullable|date',
-            'release_timing' => 'nullable|in:pre-release,post-release,other',
-            'notes_for_team' => 'nullable|string',
             'reference_links' => 'nullable|string',
-            'notes_for_admin' => 'nullable|string',
             'assignment_status' => 'nullable|exists:assignment_statuses,code',
+            'notes' => 'nullable|array',
+            'notes.*.note' => 'required|string',
+            'notes.*.note_for' => 'required|in:me,team,admin',
         ]);
 
-        // Department-specific validation
-        $department = $assignment->department;
-        $validated = $this->processDepartmentSpecificDataForUpdate($request, $department, $validated);
-
-        $assignment->update($validated);
-
-        // Handle deliverables
-        if ($request->has('deliverables')) {
-            $assignment->deliverables()->sync($request->deliverables);
+        // Update assignment with basic fields (only update fields that are provided)
+        $updateData = [];
+        if (array_key_exists('client_id', $validated)) {
+            $updateData['client_id'] = $validated['client_id'];
         }
+        if (array_key_exists('assigned_to_id', $validated)) {
+            $updateData['assigned_to_id'] = $validated['assigned_to_id'];
+        }
+        if (array_key_exists('assignment_name', $validated)) {
+            $updateData['assignment_name'] = $validated['assignment_name'];
+        }
+        if (array_key_exists('completion_date', $validated)) {
+            $updateData['completion_date'] = $validated['completion_date'];
+        }
+        if (array_key_exists('reference_links', $validated)) {
+            $updateData['reference_links'] = $validated['reference_links'];
+        }
+        if (array_key_exists('assignment_status', $validated)) {
+            $updateData['assignment_status'] = $validated['assignment_status'];
+        }
+
+
+        if (!empty($updateData)) {
+            $assignment->update($updateData);
+        }
+
+
 
         // Handle notes
         if ($request->has('notes') && is_array($request->notes)) {
-            foreach ($request->notes as $noteData) {
-                if (!empty(trim($noteData['note']))) {
-                    Note::create([
-                        'assignment_id' => $assignment->id,
-                        'note' => trim($noteData['note']),
-                        'created_by' => Auth::id(),
-                        'note_for' => $noteData['note_for'],
-                    ]);
-                }
+            $this->handleNotes($request->notes, $assignment, true); // true indicates update mode
+        }
+
+        // Department-specific validation and processing
+        $department = $assignment->department;
+
+        // Department-specific processing
+        if ($department->slug === 'music-creation') {
+            $assignment = $this->processMusicCreationData($request, $validated, $assignment);
+        } elseif ($department->slug === 'music-mastering') {
+            $assignment = $this->processMusicMasteringData($request, $validated, $assignment, true);
+            // Handle deliverables
+            if ($request->has('deliverables') && is_array($request->deliverables)) {
+                $this->handleDeliverables($request->deliverables, $assignment);
+            }
+
+        } elseif ($department->slug === 'video-editing') {
+            $validated = array_merge($validated, $request->validate([
+                'edit_type_id' => 'nullable|exists:edit_types,id',
+                'footage_type_id' => 'nullable|exists:footage_types,id',
+            ]));
+
+            $updateData = [];
+            if (isset($validated['edit_type_id'])) {
+                $updateData['edit_type_id'] = $validated['edit_type_id'];
+            }
+            if (isset($validated['footage_type_id'])) {
+                $updateData['footage_type_id'] = $validated['footage_type_id'];
+            }
+
+            if (!empty($updateData)) {
+                $assignment->update($updateData);
             }
         }
 
-        return response()->json($assignment->load([
-            'client', 'department', 'assignedTo', 'song.artists',
-            'musicCreationStatus', 'editType', 'footageType', 'deliverables', 'notes.creator', 'status'
-        ]));
+        // Create child assignments if specified
+        $childAssignments = [];
+        if ($request->has('child_departments') && is_array($request->child_departments)) {
+            $childAssignments = $this->handleChildAssignments($request->child_departments, $assignment);
+        }
+
+        $response = $assignment->load([
+            'client',
+            'department',
+            'assignedTo',
+            'song.artists',
+            'musicCreationStatus',
+            'editType',
+            'footageType',
+            'deliverables',
+            'notes.creator',
+            'status'
+        ]);
+
+        return response()->json($response);
     }
 
     public function destroy($id)
@@ -537,23 +661,6 @@ class AssignmentController extends Controller
         return $validated;
     }
 
-    private function processDepartmentSpecificDataForUpdate(Request $request, Department $department, array $validated)
-    {
-        // Department-specific validation for update
-        if ($department->slug === 'music-creation') {
-            $validated = array_merge($validated, $request->validate([
-                'song_id' => 'nullable|exists:songs,id',
-                'music_creation_status_id' => 'nullable|exists:music_creation_statuses,id',
-            ]));
-        } elseif ($department->slug === 'video-editing') {
-            $validated = array_merge($validated, $request->validate([
-                'edit_type_id' => 'nullable|exists:edit_types,id',
-                'footage_type_id' => 'nullable|exists:footage_types,id',
-            ]));
-        }
-
-        return $validated;
-    }
 
     private function calculateCompletionDate($musicTypeId, $departmentId, $releaseDate)
     {
@@ -604,6 +711,7 @@ class AssignmentController extends Controller
         }
 
         $childAssignment = Assignment::create($childData);
+
 
         $this->handleDeliverables([], $childAssignment);
 

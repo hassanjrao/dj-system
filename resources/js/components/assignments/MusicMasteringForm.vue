@@ -166,6 +166,8 @@ export default {
       // Fallback: modelValue (for create mode or if assignmentData not available)
       const dataSource = this.assignmentData || this.modelValue;
 
+      console.log("dataSource", dataSource);
+
       if (dataSource) {
         // Populate song_id
         if (dataSource.song_id) {
