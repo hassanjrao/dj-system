@@ -33,21 +33,25 @@ Route::middleware(['auth'])->group(function () {
     });
 
 
-    // Assignment routes
-    Route::get('assignments/get-assignments', 'App\Http\Controllers\AssignmentController@getAssignments');
-    Route::get('assignments/create', 'App\Http\Controllers\AssignmentController@create')->name('assignments.create');
-    Route::get('assignments', 'App\Http\Controllers\AssignmentController@index')->name('assignments.index');
-    Route::post('assignments', 'App\Http\Controllers\AssignmentController@store');
-    Route::get('assignments/{id}/edit', 'App\Http\Controllers\AssignmentController@edit')->name('assignments.edit');
-    Route::get('assignments/{id}', 'App\Http\Controllers\AssignmentController@show')->name('assignments.show');
-    Route::get('assignments/{id}/data', 'App\Http\Controllers\AssignmentController@getData')->name('assignments.data');
-    Route::put('assignments/{id}', 'App\Http\Controllers\AssignmentController@update');
-    Route::delete('assignments/{id}', 'App\Http\Controllers\AssignmentController@destroy');
-    Route::get('assignments/{id}/available-songs', 'App\Http\Controllers\AssignmentController@getAvailableSongs');
+    Route::prefix('assignments')->name('assignments.')->group(function () {
+        // Assignment routes
+        Route::get('/get-assignments', 'App\Http\Controllers\AssignmentController@getAssignments');
+        Route::get('/create', 'App\Http\Controllers\AssignmentController@create')->name('create');
+        Route::get('/', 'App\Http\Controllers\AssignmentController@index')->name('index');
+        Route::post('/', 'App\Http\Controllers\AssignmentController@store');
+        Route::get('/{id}/edit', 'App\Http\Controllers\AssignmentController@edit')->name('edit');
+        Route::get('/{id}', 'App\Http\Controllers\AssignmentController@show')->name('show');
+        Route::get('/{id}/data', 'App\Http\Controllers\AssignmentController@getData')->name('data');
+        Route::put('/{id}', 'App\Http\Controllers\AssignmentController@update');
+        Route::delete('/{id}', 'App\Http\Controllers\AssignmentController@destroy');
+        Route::get('/{id}/available-songs', 'App\Http\Controllers\AssignmentController@getAvailableSongs');
 
+        Route::post('/{assignment}/deliverables/{deliverable}/status', 'App\Http\Controllers\DeliverableController@updateStatus');
+
+
+    });
     // Deliverable routes
     Route::resource('deliverables', 'App\Http\Controllers\DeliverableController');
-    Route::post('assignments/{assignment}/deliverables/{deliverable}/status', 'App\Http\Controllers\DeliverableController@updateStatus');
 
     // Assignment relationship routes
     Route::post('assignment-relationships', 'App\Http\Controllers\AssignmentRelationshipController@store');

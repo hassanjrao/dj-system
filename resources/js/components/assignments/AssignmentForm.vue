@@ -63,6 +63,20 @@
         </div>
       </v-card-title>
       <v-card-text>
+        <!-- Validation Error Alert -->
+        <v-alert
+          v-if="validationErrors.length > 0"
+          type="error"
+          dismissible
+          @input="validationErrors = []"
+          class="mb-4"
+        >
+          <div class="font-weight-bold mb-2">Please fix the following errors:</div>
+          <ul class="mb-0">
+            <li v-for="(error, index) in validationErrors" :key="index">{{ error }}</li>
+          </ul>
+        </v-alert>
+
         <!-- Progress Bar -->
         <v-progress-linear
           :value="(currentStep / (2 + childAssignmentsQueue.length)) * 100"
@@ -542,6 +556,7 @@ export default {
       availableSongs: [],
       departmentIds: {},
       loadedAssignmentData: null, // For storing assignment data loaded from API
+      validationErrors: [], // For displaying validation errors in alert
     };
   },
   async mounted() {
@@ -825,8 +840,13 @@ export default {
         });
     },
     submit() {
+      console.log("submit", this.formData);
+
       // Validate the form - this will highlight invalid fields
-      if (this.$refs.form && this.$refs.form.validate()) {
+      const isValid = this.$refs.form && this.$refs.form.validate();
+      console.log("Form validation result:", isValid);
+
+      if (isValid) {
         this.loading = true;
 
         // Prepare form data with notes array
@@ -930,15 +950,67 @@ export default {
             });
         }
       } else {
-        // Validation failed - fields are already highlighted by Vuetify
-        // Scroll to first invalid field
+        console.log("validation failed");
+        this.showValidationErrors();
+      }
+    },
+    showValidationErrors() {
+      // Collect all validation error messages from the form
+      this.$nextTick(() => {
+        const errorMessages = [];
+        const errorElements = this.$el.querySelectorAll(".v-messages.error--text");
+
+        console.log("Error elements found:", errorElements.length);
+
+        errorElements.forEach((el) => {
+          const messageText = el.innerText.trim();
+          if (messageText) {
+            console.log("Error message:", messageText);
+            errorMessages.push(messageText);
+          }
+        });
+
+        // Also check for input fields with errors
+        const errorInputs = this.$el.querySelectorAll(".v-input.error--text");
+        console.log("Error inputs found:", errorInputs.length);
+
+        errorInputs.forEach((input) => {
+          const label = input.querySelector(".v-label");
+          const messages = input.querySelector(".v-messages__message");
+          if (label && messages) {
+            const fieldName = label.innerText.replace("*", "").trim();
+            const errorMsg = messages.innerText.trim();
+            console.log(`Field: ${fieldName}, Error: ${errorMsg}`);
+            if (!errorMessages.includes(`${fieldName}: ${errorMsg}`)) {
+              errorMessages.push(`${fieldName}: ${errorMsg}`);
+            }
+          }
+        });
+
+        if (errorMessages.length > 0) {
+          // Display errors in Vuetify alert
+          this.validationErrors = errorMessages;
+        } else {
+          // No specific errors found, show generic message
+          this.validationErrors = [
+            "Please check all required fields and ensure they are filled correctly.",
+          ];
+        }
+
+        // Scroll to top to show the error alert
         this.$nextTick(() => {
+          const cardContent = this.$el.querySelector(".v-card__text");
+          if (cardContent) {
+            cardContent.scrollTop = 0;
+          }
+
+          // Also scroll to first error field
           const firstError = this.$el.querySelector(".error--text");
           if (firstError) {
             firstError.scrollIntoView({ behavior: "smooth", block: "center" });
           }
         });
-      }
+      });
     },
     cancel() {
       window.location.href = "/assignments";
@@ -950,14 +1022,8 @@ export default {
         // Load users for the selected department when moving to step 2
         this.loadUsersForDepartment();
       } else {
-        // Validation failed - fields are already highlighted by Vuetify
-        // Scroll to first invalid field
-        this.$nextTick(() => {
-          const firstError = this.$el.querySelector(".error--text");
-          if (firstError) {
-            firstError.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-        });
+        // Validation failed - show errors
+        this.showValidationErrors();
       }
     },
     goToPreviousStep() {

@@ -146,8 +146,16 @@ class LookupController extends Controller
     public function getInitialData()
     {
         $departments = Department::all();
+
+        if(auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin')) {
+            $departmentList = Department::whereIn('id', [1,2])->get();;
+        }
+        else{
+            $departmentList = auth()->user()->departments()->whereNotIn('id', [1,2])->get();
+        }
+
         return response()->json([
-            'departments' => Department::whereIn('id', [1,2])->get(),
+            'departments' => $departmentList,
             'clients' => Client::orderBy('name')->get(),
             'lookup_data' => [
                 'music_types' => MusicType::where('is_active', true)->get(),

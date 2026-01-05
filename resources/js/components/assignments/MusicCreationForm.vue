@@ -151,16 +151,20 @@
       <v-card>
         <v-card-title>Create New Album</v-card-title>
         <v-card-text>
-          <v-text-field
-            v-model="newAlbumName"
-            label="Album Name *"
-            :rules="[(v) => !!v || 'Album name is required']"
-            required
-          ></v-text-field>
+          <v-form ref="albumForm" v-model="albumFormValid">
+            <v-text-field
+              v-model="newAlbumName"
+              label="Album Name *"
+              :rules="[(v) => !!v || 'Album name is required']"
+              required
+            ></v-text-field>
+          </v-form>
         </v-card-text>
         <v-card-actions class="justify-end">
-          <v-btn text small @click="showAlbumDialog = false" class="mr-2">Cancel</v-btn>
-          <v-btn color="primary" small @click="createAlbum">Create</v-btn>
+          <v-btn text small @click="closeAlbumDialog" class="mr-2">Cancel</v-btn>
+          <v-btn color="primary" small :disabled="!albumFormValid" @click="createAlbum"
+            >Create</v-btn
+          >
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -170,16 +174,20 @@
       <v-card>
         <v-card-title>Create New Artist</v-card-title>
         <v-card-text>
-          <v-text-field
-            v-model="newArtistName"
-            label="Artist Name *"
-            :rules="[(v) => !!v || 'Artist name is required']"
-            required
-          ></v-text-field>
+          <v-form ref="artistForm" v-model="artistFormValid">
+            <v-text-field
+              v-model="newArtistName"
+              label="Artist Name *"
+              :rules="[(v) => !!v || 'Artist name is required']"
+              required
+            ></v-text-field>
+          </v-form>
         </v-card-text>
         <v-card-actions class="justify-end">
           <v-btn text small @click="closeArtistDialog" class="mr-2">Cancel</v-btn>
-          <v-btn color="primary" small @click="createArtist">Create</v-btn>
+          <v-btn color="primary" small :disabled="!artistFormValid" @click="createArtist"
+            >Create</v-btn
+          >
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -232,9 +240,11 @@ export default {
       },
       artistSuggestions: [],
       showAlbumDialog: false,
+      albumFormValid: false,
       newAlbumName: "",
       albums: [],
       showArtistDialog: false,
+      artistFormValid: false,
       newArtistName: "",
       availableChildDepartments: [],
       loadingChildDepartments: false,
@@ -385,7 +395,7 @@ export default {
         });
     },
     createArtist() {
-      if (!this.newArtistName) return;
+      if (!this.$refs.artistForm.validate()) return;
 
       axios
         .post("/artists", { name: this.newArtistName })
@@ -397,8 +407,7 @@ export default {
             this.songData.artists = [];
           }
           this.songData.artists.push(response.data.id);
-          this.showArtistDialog = false;
-          this.newArtistName = "";
+          this.closeArtistDialog();
           this.updateModel();
         })
         .catch((error) => {
@@ -411,22 +420,31 @@ export default {
     closeArtistDialog() {
       this.showArtistDialog = false;
       this.newArtistName = "";
+      if (this.$refs.artistForm) {
+        this.$refs.artistForm.resetValidation();
+      }
     },
     createAlbum() {
-      if (!this.newAlbumName) return;
+      if (!this.$refs.albumForm.validate()) return;
 
       axios
         .post("/albums", { name: this.newAlbumName })
         .then((response) => {
           this.albums.push(response.data);
           this.songData.album_id = response.data.id;
-          this.showAlbumDialog = false;
-          this.newAlbumName = "";
+          this.closeAlbumDialog();
           this.updateModel();
         })
         .catch((error) => {
           console.error("Error creating album:", error);
         });
+    },
+    closeAlbumDialog() {
+      this.showAlbumDialog = false;
+      this.newAlbumName = "";
+      if (this.$refs.albumForm) {
+        this.$refs.albumForm.resetValidation();
+      }
     },
     calculateCompletionDate() {
       // Calculate completion date based on song's music type and release date
@@ -475,6 +493,8 @@ export default {
         song_completion_date: this.songData.completion_date,
         song_artists: this.songData.artists || [],
       };
+
+      console.log("payload", payload);
       this.$emit("update:modelValue", payload);
     },
   },
