@@ -17,7 +17,7 @@ class UserController extends Controller
     public function index()
     {
         if (!Auth::user()->hasRole('super-admin')) {
-            // abort(403, 'Unauthorized access');
+            abort(403, 'Unauthorized access');
         }
 
         return view('users.index');
@@ -29,7 +29,7 @@ class UserController extends Controller
     public function getUsers()
     {
         if (!Auth::user()->hasRole('super-admin')) {
-            // return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $users = User::with(['roles', 'departments'])->latest()->get();
@@ -61,7 +61,7 @@ class UserController extends Controller
     public function store(Request $request)
     {
         if (!Auth::user()->hasRole('super-admin')) {
-            // return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $validated = $request->validate([
@@ -102,7 +102,7 @@ class UserController extends Controller
     public function update(Request $request, $id)
     {
         if (!Auth::user()->hasRole('super-admin')) {
-            // return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $user = User::findOrFail($id);
@@ -151,7 +151,7 @@ class UserController extends Controller
     public function getRoles()
     {
         if (!Auth::user()->hasRole('super-admin')) {
-            // return response()->json(['error' => 'Unauthorized'], 403);
+            return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         $roles = Role::all(['id', 'name']);

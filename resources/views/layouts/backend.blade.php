@@ -182,7 +182,7 @@
                             </a>
                         </li>
                         @auth
-                            {{-- @if (auth()->user()->hasRole('super-admin')) --}}
+                            @if (auth()->user()->hasRole('super-admin'))
                                 <li class="nav-main-item">
                                     <a class="nav-main-link{{ request()->is('users') ? ' active' : '' }}"
                                         href="{{ route('users.index') }}">
@@ -190,7 +190,7 @@
                                         <span class="nav-main-link-name">Users</span>
                                     </a>
                                 </li>
-                            {{-- @endif --}}
+                            @endif
                             @php
                                 // if super admin, show all departments
                                 if (auth()->user()->hasRole('super-admin')) {

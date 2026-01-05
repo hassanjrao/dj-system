@@ -10,16 +10,38 @@
       </v-card-title>
 
       <v-card-text>
-        <v-form ref="form" v-model="valid">
+        <!-- Error Alert -->
+        <v-alert
+          v-if="errorMessage || Object.keys(fieldErrors).length > 0"
+          type="error"
+          dense
+          outlined
+          class="mb-4"
+          dismissible
+          @input="clearErrors"
+        >
+          <div v-if="errorMessage" class="mb-2">
+            <strong>{{ errorMessage }}</strong>
+          </div>
+          <div v-if="Object.keys(fieldErrors).length > 0">
+            <div v-for="(errors, field) in fieldErrors" :key="field" class="mt-1">
+              <div v-for="(error, index) in errors" :key="index">• {{ error }}</div>
+            </div>
+          </div>
+        </v-alert>
+
+        <v-form ref="form">
           <v-row>
             <v-col cols="12">
               <v-text-field
                 v-model="formData.name"
                 label="Name *"
-                :rules="[(v) => !!v || 'Name is required']"
+                :rules="rules.name"
+                :error-messages="fieldErrors.name || []"
                 required
                 outlined
                 dense
+                @input="clearFieldError('name')"
               ></v-text-field>
             </v-col>
           </v-row>
@@ -30,13 +52,12 @@
                 v-model="formData.email"
                 label="Email *"
                 type="email"
-                :rules="[
-                  (v) => !!v || 'Email is required',
-                  (v) => /.+@.+\..+/.test(v) || 'Email must be valid',
-                ]"
+                :rules="rules.email"
+                :error-messages="fieldErrors.email || []"
                 required
                 outlined
                 dense
+                @input="clearFieldError('email')"
               ></v-text-field>
             </v-col>
           </v-row>
@@ -47,7 +68,8 @@
                 v-model="formData.password"
                 label="Password"
                 :type="showPassword ? 'text' : 'password'"
-                :rules="passwordRules"
+                :rules="editMode ? rules.passwordOptional : rules.passwordRequired"
+                :error-messages="fieldErrors.password || []"
                 :hint="
                   editMode
                     ? 'Leave blank to keep current password'
@@ -58,6 +80,7 @@
                 dense
                 :append-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 @click:append="showPassword = !showPassword"
+                @input="clearFieldError('password')"
               ></v-text-field>
             </v-col>
           </v-row>
@@ -70,13 +93,15 @@
                 item-text="name"
                 item-value="name"
                 label="Role *"
-                :rules="[(v) => !!v || 'Role is required']"
+                :rules="rules.role"
+                :error-messages="fieldErrors.role || []"
                 :loading="loadingRoles"
                 required
                 outlined
                 dense
                 chips
                 small-chips
+                @input="clearFieldError('role')"
               ></v-autocomplete>
             </v-col>
           </v-row>
@@ -89,6 +114,7 @@
                 item-text="name"
                 item-value="id"
                 label="Departments"
+                :error-messages="fieldErrors.departments || []"
                 multiple
                 :loading="loadingDepartments"
                 outlined
@@ -96,6 +122,7 @@
                 chips
                 small-chips
                 clearable
+                @input="clearFieldError('departments')"
               ></v-autocomplete>
             </v-col>
           </v-row>
@@ -104,12 +131,7 @@
 
       <v-card-actions class="justify-end">
         <v-btn text @click="$emit('close')" class="mr-2">Cancel</v-btn>
-        <v-btn
-          color="primary"
-          :disabled="!valid || loading"
-          :loading="loading"
-          @click="saveUser"
-        >
+        <v-btn color="primary" :loading="loading" @click="saveUser">
           {{ editMode ? "Update" : "Create" }}
         </v-btn>
       </v-card-actions>
@@ -136,11 +158,12 @@ export default {
   },
   data() {
     return {
-      valid: false,
       loading: false,
       loadingRoles: false,
       loadingDepartments: false,
       showPassword: false,
+      errorMessage: "",
+      fieldErrors: {},
       formData: {
         name: "",
         email: "",
@@ -150,25 +173,27 @@ export default {
       },
       roles: [],
       departments: [],
-    };
-  },
-  computed: {
-    passwordRules() {
-      if (this.editMode) {
-        // Optional for edit mode
-        return [(v) => !v || v.length >= 8 || "Password must be at least 8 characters"];
-      } else {
-        // Required for new users
-        return [
+      rules: {
+        name: [(v) => !!v || "Name is required"],
+        email: [
+          (v) => !!v || "Email is required",
+          (v) => /.+@.+\..+/.test(v) || "Email must be valid",
+        ],
+        passwordRequired: [
           (v) => !!v || "Password is required",
           (v) => (v && v.length >= 8) || "Password must be at least 8 characters",
-        ];
-      }
-    },
+        ],
+        passwordOptional: [
+          (v) => !v || v.length >= 8 || "Password must be at least 8 characters",
+        ],
+        role: [(v) => !!v || "Role is required"],
+      },
+    };
   },
   watch: {
     dialog(newVal) {
       if (newVal) {
+        this.clearErrors();
         this.loadRoles();
         this.loadDepartments();
         if (this.editMode && this.userData) {
@@ -181,7 +206,21 @@ export default {
   },
   methods: {
     handleClose() {
+      this.clearErrors();
       this.$emit("close");
+    },
+    clearErrors() {
+      this.errorMessage = "";
+      this.fieldErrors = {};
+    },
+    clearFieldError(fieldName) {
+      // Clear error for specific field when user starts typing
+      if (this.fieldErrors[fieldName]) {
+        // Create new object without the field to ensure reactivity
+        const newFieldErrors = { ...this.fieldErrors };
+        delete newFieldErrors[fieldName];
+        this.fieldErrors = newFieldErrors;
+      }
     },
     populateForm() {
       this.formData = {
@@ -198,6 +237,7 @@ export default {
       };
     },
     resetForm() {
+      this.clearErrors();
       this.formData = {
         name: "",
         email: "",
@@ -234,6 +274,9 @@ export default {
       }
     },
     async saveUser() {
+      // Clear previous errors
+      this.clearErrors();
+
       if (!this.$refs.form.validate()) {
         return;
       }
@@ -265,16 +308,40 @@ export default {
         this.$emit("saved");
       } catch (error) {
         console.error("Error saving user:", error);
-        let errorMessage = "Failed to save user. Please try again.";
+
+        // Handle backend validation errors
         if (error.response && error.response.data) {
-          if (error.response.data.message) {
-            errorMessage = error.response.data.message;
-          } else if (error.response.data.errors) {
-            const errors = Object.values(error.response.data.errors).flat();
-            errorMessage = errors.join("\n");
+          const errorData = error.response.data;
+
+          // Set general error message
+          if (errorData.message) {
+            this.errorMessage = errorData.message;
           }
+
+          // Set field-specific errors
+          if (errorData.errors && typeof errorData.errors === "object") {
+            this.fieldErrors = {};
+            Object.keys(errorData.errors).forEach((field) => {
+              if (Array.isArray(errorData.errors[field])) {
+                this.fieldErrors[field] = errorData.errors[field];
+              }
+            });
+          }
+
+          // If no specific errors, show a generic message
+          if (!this.errorMessage && Object.keys(this.fieldErrors).length === 0) {
+            this.errorMessage =
+              "Failed to save user. Please check the form and try again.";
+          }
+        } else {
+          // Network or other errors
+          this.errorMessage = "Failed to save user. Please try again.";
         }
-        this.$toast?.error(errorMessage);
+
+        // Also show toast notification
+        const toastMessage =
+          this.errorMessage || "Validation errors occurred. Please check the form.";
+        this.$toast?.error(toastMessage);
       } finally {
         this.loading = false;
       }
