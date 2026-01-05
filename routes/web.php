@@ -36,7 +36,11 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('assignments')->name('assignments.')->group(function () {
         // Assignment routes
         Route::get('/get-assignments', 'App\Http\Controllers\AssignmentController@getAssignments');
-        Route::get('/create', 'App\Http\Controllers\AssignmentController@create')->name('create');
+        
+        Route::get('/create', 'App\Http\Controllers\AssignmentController@create')
+        ->name('create')
+        ->middleware('role_or_permission:admin|super-admin|create-assignments');
+
         Route::get('/', 'App\Http\Controllers\AssignmentController@index')->name('index');
         Route::post('/', 'App\Http\Controllers\AssignmentController@store');
         Route::get('/{id}/edit', 'App\Http\Controllers\AssignmentController@edit')->name('edit');
