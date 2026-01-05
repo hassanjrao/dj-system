@@ -310,9 +310,9 @@
 
                 <!-- Right Section -->
                 <div class="d-flex align-items-center">
-                    <div class="dropdown d-inline-block ms-2">
+                    <div class="dropdown d-inline-block ms-2" style="position: relative;">
                         <button type="button" class="btn btn-sm btn-alt-secondary d-flex align-items-center"
-                            id="page-header-user-dropdown" data-bs-toggle="dropdown" aria-haspopup="true"
+                            id="page-header-user-dropdown" onclick="toggleUserDropdown(event)" aria-haspopup="true"
                             aria-expanded="false">
                             <img class="rounded-circle" src="{{ asset('media/avatars/avatar10.jpg') }}"
                                 alt="Header Avatar" style="width: 21px;">
@@ -320,7 +320,8 @@
                             <i class="fa fa-fw fa-angle-down d-none d-sm-inline-block ms-1 mt-1"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-md dropdown-menu-end p-0 border-0"
-                            aria-labelledby="page-header-user-dropdown">
+                            id="user-dropdown-menu"
+                            style="display: none; position: absolute; right: 0; top: 100%; margin-top: 0.5rem; z-index: 1000;">
                             <div class="p-3 text-center bg-body-light border-bottom rounded-top">
                                 <img class="img-avatar img-avatar48 img-avatar-thumb"
                                     src="{{ asset('media/avatars/avatar10.jpg') }}" alt="">
@@ -405,11 +406,12 @@
 
             Core libraries and functionality
         -->
-    {{-- <script src="{{ asset('js/oneui.app.js') }}"></script> --}}
+
+    <script src="{{ asset('/js/laravel.app.js') }}"></script>
+    <script src="{{ asset('js/oneui.app.js') }}"></script>
 
     <script src="{{ asset('js/app.js') }}"></script>
     <!-- Laravel Scaffolding JS -->
-    <script src="{{ asset('/js/laravel.app.js') }}"></script>
 
     <!-- Vue.js -->
 
@@ -438,6 +440,29 @@
                 }
             })
         }
+
+        // Toggle user dropdown
+        function toggleUserDropdown(event) {
+            event.stopPropagation();
+            var dropdown = document.getElementById('user-dropdown-menu');
+            if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            var dropdown = document.getElementById('user-dropdown-menu');
+            var button = document.getElementById('page-header-user-dropdown');
+
+            if (dropdown && button) {
+                if (!button.contains(event.target) && !dropdown.contains(event.target)) {
+                    dropdown.style.display = 'none';
+                }
+            }
+        });
     </script>
 
     @yield('js_after')
