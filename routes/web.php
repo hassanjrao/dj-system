@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -21,9 +22,15 @@ Auth::routes();
 Route::middleware(['auth'])->group(function () {
 
     Route::prefix('dashboard')->name('dashboard.')->group(function () {
-
         Route::get('/', [DashboardController::class, 'index'])->name('index');
     });
+
+    // Profile routes
+    Route::prefix('profile')->name('profile.')->group(function () {
+        Route::get('/', 'App\Http\Controllers\ProfileController@index')->name('index');
+        Route::put('/', 'App\Http\Controllers\ProfileController@update')->name('update');
+    });
+
 
     // Assignment routes
     Route::get('assignments/get-assignments', 'App\Http\Controllers\AssignmentController@getAssignments');

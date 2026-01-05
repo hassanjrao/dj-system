@@ -252,8 +252,7 @@
                                                     style="{{ request()->is('assignments') && request()->get('department_id') == $department->id ? 'color: red !important;' : '' }}">
                                                     <span class="nav-main-link-name">{{ $department->name }}</span>
                                                     @if ($deptCount > 0)
-                                                        <span
-                                                            class="nav-main-link-badge badge rounded-pill bg-primary">
+                                                        <span class="nav-main-link-badge badge rounded-pill bg-primary">
                                                             {{ $deptCount }}
                                                         </span>
                                                     @endif
@@ -329,21 +328,17 @@
                             </div>
                             <div class="p-2">
                                 <a class="dropdown-item d-flex align-items-center justify-content-between"
-                                    href="">
+                                    href="{{ route('profile.index') }}">
                                     <span class="fs-sm fw-medium">Profile</span>
-
                                 </a>
                                 <form action="{{ route('logout') }}" id="logout-form" method="POST">
                                     @csrf
-
                                 </form>
-
 
                                 <a class="dropdown-item d-flex align-items-center justify-content-between"
                                     onclick="document.getElementById('logout-form').submit()">
                                     <span class="fs-sm fw-medium">Log Out</span>
                                 </a>
-
                             </div>
 
                         </div>
@@ -409,7 +404,7 @@
 
             Core libraries and functionality
         -->
-    <script src="{{ asset('js/oneui.app.js') }}"></script>
+    {{-- <script src="{{ asset('js/oneui.app.js') }}"></script> --}}
 
     <script src="{{ asset('js/app.js') }}"></script>
     <!-- Laravel Scaffolding JS -->

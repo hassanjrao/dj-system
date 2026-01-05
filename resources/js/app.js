@@ -21,6 +21,7 @@ Vue.component('distribution-form', require('./components/assignments/Distributio
 Vue.component('assignment-list', require('./components/assignments/AssignmentList.vue').default);
 Vue.component('user-list', require('./components/users/UserList.vue').default);
 Vue.component('user-form-dialog', require('./components/users/UserFormDialog.vue').default);
+Vue.component('profile-update', require('./components/profile/ProfileUpdate.vue').default);
 
 
 const app = new Vue({
