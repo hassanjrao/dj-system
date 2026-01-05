@@ -813,18 +813,15 @@ class AssignmentController extends Controller
         return response()->json($songs);
     }
 
-    public function getCompletionDays($musicTypeId)
+    public function getCompletionDays($musicTypeId, $departmentId)
     {
-        $completionDay = MusicTypeCompletionDay::where('music_type_id', $musicTypeId)->first();
-
-        if ($completionDay) {
-            return response()->json([
-                'days_before_release' => $completionDay->days_before_release
-            ]);
-        }
-
+        $completionDay = MusicTypeCompletionDay::query()
+        ->where('music_type_id', $musicTypeId)
+        ->where('department_id', $departmentId)
+        ->first();
+        
         return response()->json([
-            'days_before_release' => 7 // Default
+            'days_before_release' => $completionDay->days_before_release ?? 7
         ]);
     }
 

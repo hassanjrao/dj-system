@@ -252,11 +252,7 @@ export default {
       }
 
       axios
-        .get(`/music-types/${song.music_type_id}/completion-days`, {
-          params: {
-            department_id: musicMasteringDeptId,
-          },
-        })
+        .get(`/music-types/${song.music_type_id}/${musicMasteringDeptId}/completion-days`)
         .then((response) => {
           const daysBeforeRelease = response.data.days_before_release || 7; // Default to 7 days
           const releaseDate = new Date(song.release_date);

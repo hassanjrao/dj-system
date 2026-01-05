@@ -91,7 +91,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('songs/{id}', 'App\Http\Controllers\SongController@update');
     Route::delete('songs/{id}', 'App\Http\Controllers\SongController@destroy');
 
-    Route::get('music-types/{id}/completion-days', 'App\Http\Controllers\AssignmentController@getCompletionDays');
+    Route::get('music-types/{musicTypeId}/{departmentId}/completion-days', 'App\Http\Controllers\AssignmentController@getCompletionDays');
 
     // Assignment relationship routes
     Route::post('assignment-relationships', 'App\Http\Controllers\AssignmentRelationshipController@store');
