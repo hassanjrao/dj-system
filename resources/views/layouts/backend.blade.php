@@ -175,8 +175,8 @@
                 <div class="content-side">
                     <ul class="nav-main">
                         <li class="nav-main-item">
-                            <a class="nav-main-link{{ request()->is('dashboard') ? ' active' : '' }}"
-                                href="/dashboard">
+                            <a class="nav-main-link{{ request()->is('/') ? ' active' : '' }}"
+                                href="{{ route('dashboard.index') }}">
                                 <i class="nav-main-link-icon si si-cursor"></i>
                                 <span class="nav-main-link-name">Dashboard</span>
                             </a>
@@ -336,6 +336,7 @@
                                 </form>
 
                                 <a class="dropdown-item d-flex align-items-center justify-content-between"
+                                    style="cursor: pointer;"
                                     onclick="document.getElementById('logout-form').submit()">
                                     <span class="fs-sm fw-medium">Log Out</span>
                                 </a>

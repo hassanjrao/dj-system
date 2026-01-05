@@ -21,9 +21,8 @@ Auth::routes();
 
 Route::middleware(['auth'])->group(function () {
 
-    Route::prefix('dashboard')->name('dashboard.')->group(function () {
-        Route::get('/', [DashboardController::class, 'index'])->name('index');
-    });
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
+
 
     // Profile routes
     Route::prefix('profile')->name('profile.')->group(function () {
