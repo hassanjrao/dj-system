@@ -7,7 +7,7 @@
 @section('content')
     <div id="vue-app">
         <div class="content">
-            <assignment-list :department-id="{{ $departmentId }}" />
+            <assignment-list :department-id="{{ $departmentId ?? 'null' }}" />
         </div>
     </div>
 @endsection

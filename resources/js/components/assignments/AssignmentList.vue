@@ -168,8 +168,9 @@ export default {
   name: "AssignmentList",
   props: {
     departmentId: {
-      type: Number,
-      required: true,
+      type: [Number, String],
+      required: false,
+      default: null,
     },
   },
   data() {
@@ -213,21 +214,21 @@ export default {
     this.checkCreatePermission();
     // Load clients for filter
     this.loadClients();
-    // Load data
-    if (this.departmentId) {
-      this.getAssignments();
-    }
+    // Load data (works for both "All" and specific department)
+    this.getAssignments();
   },
   methods: {
     async getAssignments() {
-      if (!this.departmentId) return;
-
       this.loading = true;
       try {
         const params = {
-          department_id: this.departmentId,
           status: this.tabs[this.activeTab].key,
         };
+
+        // Only include department_id if it's provided (not null/undefined)
+        if (this.departmentId && this.departmentId !== "null") {
+          params.department_id = this.departmentId;
+        }
 
         if (this.selectedClient && this.selectedClient.length > 0) {
           params.client_id = this.selectedClient;

@@ -20,7 +20,16 @@ class AssignmentController extends Controller
     public function index(Request $request)
     {
         $departmentId = $request->get('department_id');
-        $department = Department::findOrFail($departmentId);
+
+        // If department_id is provided, validate it exists
+        if ($departmentId) {
+            $department = Department::findOrFail($departmentId);
+        } else {
+            // For "All" option, set departmentId to null
+            $departmentId = null;
+            $department = null;
+        }
+
         return view('assignments.index', compact('departmentId'));
     }
 
@@ -712,7 +721,7 @@ class AssignmentController extends Controller
         $childAssignment = Assignment::firstOrCreate([
             'department_id' => $childDepartmentId,
             'parent_assignment_id' => $parentAssignment->id,
-        ],$childData);
+        ], $childData);
 
 
         $this->handleDeliverables([], $childAssignment);
@@ -822,7 +831,7 @@ class AssignmentController extends Controller
     public function getAssignments(Request $request)
     {
         $request->validate([
-            'department_id' => 'required|exists:departments,id',
+            'department_id' => 'nullable|exists:departments,id',
             'status' => 'required|in:all,active,completed', // This is for filtering, not the assignment_status field
             'client_id' => 'nullable|exists:clients,id',
             'search' => 'nullable|string|max:255',
@@ -834,12 +843,17 @@ class AssignmentController extends Controller
         $clientId = $request->get('client_id');
         $search = $request->get('search');
 
-        // Base query for all assignments in department (for counts)
-        $baseQuery = Assignment::where('department_id', $departmentId);
+        // Base query for all assignments (for counts)
+        $baseQuery = Assignment::query();
+
+        // If department_id is provided, filter by it
+        if ($departmentId) {
+            $baseQuery->where('department_id', $departmentId);
+        }
 
         $activeStatusCodes = AssignmentStatus::whereIn('code', ['pending', 'in-progress', 'on-hold'])->pluck('code')->toArray();
 
-        // Calculate counts for all assignments in department
+        // Calculate counts for all assignments
         $today = Carbon::today();
         $allAssignments = $baseQuery->get();
         $activeCount = 0;
@@ -863,7 +877,12 @@ class AssignmentController extends Controller
         // Query for filtered assignments
         $query = Assignment::with([
             'client', 'department', 'assignedTo', 'song', 'deliverables', 'status', 'createdBy'
-        ])->where('department_id', $departmentId);
+        ]);
+
+        // If department_id is provided, filter by it
+        if ($departmentId) {
+            $query->where('department_id', $departmentId);
+        }
 
         // Filter by status
         if ($status === 'active') {

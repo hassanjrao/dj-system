@@ -193,13 +193,34 @@
                             @endif
                             @php
                                 // if super admin, show all departments
-                                if (auth()->user()->hasRole('super-admin')) {
+                                if (auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin')) {
                                     $departments = \App\Models\Department::all();
                                 } else {
                                     $departments = auth()->user()->departments;
                                 }
-                                // Check if any department is active
-                                $isAssignmentsActive = request()->is('assignments') && request()->get('department_id');
+
+                                // Get assignment counts per department (active assignments only)
+                                $assignmentCounts = \App\Models\Assignment::query()
+                                    // ->whereIn('assignment_status', [
+                                    //     'pending',
+                                    //     'in-progress',
+                                    //     'on-hold',
+                                    // ])
+                                    ->selectRaw('department_id, count(*) as count')
+                                    ->groupBy('department_id')
+                                    ->pluck('count', 'department_id');
+
+                                // Get total assignments count (All)
+                                $totalAssignmentsCount = \App\Models\Assignment::query()
+                                    // ->whereIn('assignment_status', [
+                                    //     'pending',
+                                    //     'in-progress',
+                                    //     'on-hold',
+                                    // ])
+                                    ->count();
+
+                                // Check if any department is active (or "All" is active)
+                                $isAssignmentsActive = request()->is('assignments');
                             @endphp
                             @if ($departments->count() > 0)
                                 <li class="nav-main-item{{ $isAssignmentsActive ? ' open' : '' }}">
@@ -210,12 +231,30 @@
                                         <span class="nav-main-link-name">My Assignments</span>
                                     </a>
                                     <ul class="nav-main-submenu">
+                                        <li class="nav-main-item">
+                                            <a class="nav-main-link{{ request()->is('assignments') && !request()->get('department_id') ? ' active' : '' }}"
+                                                href="{{ route('assignments.index') }}"
+                                                style="{{ request()->is('assignments') && !request()->get('department_id') ? 'color: red !important;' : '' }}">
+                                                <span class="nav-main-link-name">All</span>
+                                                @if ($totalAssignmentsCount > 0)
+                                                    <span
+                                                        class="nav-main-link-badge badge rounded-pill bg-primary">{{ $totalAssignmentsCount }}</span>
+                                                @endif
+                                            </a>
+                                        </li>
                                         @foreach ($departments as $department)
+                                            @php
+                                                $deptCount = $assignmentCounts[$department->id] ?? 0;
+                                            @endphp
                                             <li class="nav-main-item">
                                                 <a class="nav-main-link{{ request()->is('assignments') && request()->get('department_id') == $department->id ? ' active' : '' }}"
                                                     href="{{ route('assignments.index', ['department_id' => $department->id]) }}"
                                                     style="{{ request()->is('assignments') && request()->get('department_id') == $department->id ? 'color: red !important;' : '' }}">
                                                     <span class="nav-main-link-name">{{ $department->name }}</span>
+                                                    @if ($deptCount > 0)
+                                                        <span
+                                                            class="nav-main-link-badge badge rounded-pill bg-primary">{{ $deptCount }}</span>
+                                                    @endif
                                                 </a>
                                             </li>
                                         @endforeach
