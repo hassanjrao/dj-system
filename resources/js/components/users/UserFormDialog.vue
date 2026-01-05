@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :value="dialog" max-width="600" persistent @input="handleClose">
+  <v-dialog :value="dialog" max-width="800" persistent @input="handleClose">
     <v-card>
       <v-card-title>
         <span>{{ editMode ? "Edit User" : "Add New User" }}</span>
@@ -15,7 +15,7 @@
           v-if="errorMessage || Object.keys(fieldErrors).length > 0"
           type="error"
           dense
-          outlined
+
           class="mb-4"
           dismissible
           @input="clearErrors"
@@ -32,22 +32,19 @@
 
         <v-form ref="form">
           <v-row>
-            <v-col cols="12">
+            <v-col cols="12" md="6">
               <v-text-field
                 v-model="formData.name"
                 label="Name *"
                 :rules="rules.name"
                 :error-messages="fieldErrors.name || []"
                 required
-                outlined
+
                 dense
                 @input="clearFieldError('name')"
               ></v-text-field>
             </v-col>
-          </v-row>
-
-          <v-row>
-            <v-col cols="12">
+            <v-col cols="12" md="6">
               <v-text-field
                 v-model="formData.email"
                 label="Email *"
@@ -55,7 +52,7 @@
                 :rules="rules.email"
                 :error-messages="fieldErrors.email || []"
                 required
-                outlined
+
                 dense
                 @input="clearFieldError('email')"
               ></v-text-field>
@@ -63,7 +60,7 @@
           </v-row>
 
           <v-row>
-            <v-col cols="12">
+            <v-col cols="12" md="6">
               <v-text-field
                 v-model="formData.password"
                 label="Password"
@@ -76,17 +73,14 @@
                     : 'Password is required'
                 "
                 persistent-hint
-                outlined
+
                 dense
                 :append-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 @click:append="showPassword = !showPassword"
                 @input="clearFieldError('password')"
               ></v-text-field>
             </v-col>
-          </v-row>
-
-          <v-row>
-            <v-col cols="12">
+            <v-col cols="12" md="6">
               <v-autocomplete
                 v-model="formData.role"
                 :items="roles"
@@ -97,7 +91,7 @@
                 :error-messages="fieldErrors.role || []"
                 :loading="loadingRoles"
                 required
-                outlined
+
                 dense
                 chips
                 small-chips
@@ -117,7 +111,7 @@
                 :error-messages="fieldErrors.departments || []"
                 multiple
                 :loading="loadingDepartments"
-                outlined
+
                 dense
                 chips
                 small-chips
