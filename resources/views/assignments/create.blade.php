@@ -8,9 +8,7 @@
     <div id="vue-app">
 
         <div class="content">
-            <assignment-form
-                :is-edit="false"
-                :is-admin="{{ auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin') ? 'true' : 'false' }}">
+            <assignment-form :is-edit="false">
             </assignment-form>
         </div>
     </div>

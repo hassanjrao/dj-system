@@ -24,6 +24,7 @@
             <v-tooltip bottom>
               <template v-slot:activator="{ on, attrs }">
                 <v-btn
+                v-if="$store.getters['auth/hasPermission']('create-assignments')"
                   color="success"
                   v-bind="attrs"
                   v-on="on"
@@ -210,8 +211,6 @@ export default {
   },
   mounted() {
     console.log("departmentId", this.departmentId);
-    // Check if user can create assignments
-    this.checkCreatePermission();
     // Load clients for filter
     this.loadClients();
     // Load data (works for both "All" and specific department)
@@ -257,23 +256,6 @@ export default {
         this.clients = response.data;
       } catch (error) {
         console.error("Error loading clients:", error);
-      }
-    },
-    async checkCreatePermission() {
-      // Check if user has permission to create assignments in this department
-      // For now, we'll check if user belongs to the department or is admin
-      try {
-        if (!this.departmentId) {
-          this.canCreate = false;
-          return;
-        }
-
-        // Check user's departments or roles
-        // This should ideally come from backend, but for now we'll enable it
-        // if department is selected (backend will handle permission check on create)
-        this.canCreate = true;
-      } catch (error) {
-        this.canCreate = false;
       }
     },
     debouncedSearch() {

@@ -9,8 +9,7 @@
 
         <div class="content">
             <assignment-form :model-value="{{ json_encode($assignment) }}" :is-edit="true"
-                :assignment-data="{{ json_encode($assignment) }}"
-                :is-admin="{{ auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin') ? 'true' : 'false' }}">
+                :assignment-data="{{ json_encode($assignment) }}">
             </assignment-form>
         </div>
     </div>

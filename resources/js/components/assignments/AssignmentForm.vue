@@ -486,9 +486,17 @@ export default {
       type: Array,
       default: () => [],
     },
-    isAdmin: {
-      type: Boolean,
-      default: false,
+  },
+  computed: {
+    // Get user permissions from Vuex store
+    isAdmin() {
+      return this.$store.getters["auth/isAdmin"];
+    },
+    isSuperAdmin() {
+      return this.$store.getters["auth/isSuperAdmin"];
+    },
+    currentUser() {
+      return this.$store.getters["auth/user"];
     },
   },
   data() {

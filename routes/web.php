@@ -23,6 +23,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
 
+    // Auth routes
+    Route::get('/auth/user', 'App\Http\Controllers\AuthController@getCurrentUser');
 
     // Profile routes
     Route::prefix('profile')->name('profile.')->group(function () {

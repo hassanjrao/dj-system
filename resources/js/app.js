@@ -1,6 +1,7 @@
 require('./bootstrap');
 import Vue from 'vue';
 import vuetify from './plugins/vuetify';
+import store from './store';
 
 
 // Set up axios CSRF token
@@ -24,9 +25,21 @@ Vue.component('user-form-dialog', require('./components/users/UserFormDialog.vue
 Vue.component('profile-update', require('./components/profile/ProfileUpdate.vue').default);
 
 
-const app = new Vue({
-    el: '#vue-app',
-    vuetify,
+// Fetch user data before initializing app
+store.dispatch('auth/fetchUser').then(() => {
+    const app = new Vue({
+        el: '#vue-app',
+        vuetify,
+        store,
+    });
+}).catch((error) => {
+    console.error('Failed to initialize app:', error);
+    // Still create the app even if fetching user fails
+    const app = new Vue({
+        el: '#vue-app',
+        vuetify,
+        store,
+    });
 });
 
 
