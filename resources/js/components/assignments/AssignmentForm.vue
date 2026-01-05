@@ -4,7 +4,7 @@
       <v-card-title class="d-flex justify-space-between align-center">
         <div>
           <span>{{ isEdit ? "Edit Assignment" : "Create Assignment" }}</span>
-          <div v-if="currentStep >= 3" class="text-caption grey--text">
+          <div class="text-caption grey--text">
             Step {{ currentStep }} of {{ 2 + childAssignmentsQueue.length }}
           </div>
         </div>
@@ -63,6 +63,13 @@
         </div>
       </v-card-title>
       <v-card-text>
+        <!-- Progress Bar -->
+        <v-progress-linear
+          :value="(currentStep / (2 + childAssignmentsQueue.length)) * 100"
+          color="primary"
+          class="mb-4"
+        ></v-progress-linear>
+
         <!-- Step 1: Department and Client Selection -->
         <v-form ref="step1Form" v-model="step1Valid" v-if="currentStep === 1">
           <v-row>
@@ -277,12 +284,6 @@
 
         <!-- Step 3+: Child Assignment Forms -->
         <v-form ref="form" v-model="valid" v-if="currentStep >= 3">
-          <v-progress-linear
-            :value="((currentStep - 2) / childAssignmentsQueue.length) * 100"
-            color="primary"
-            class="mb-4"
-          ></v-progress-linear>
-
           <v-alert type="info" text class="mb-4">
             Editing child assignment {{ currentChildIndex + 1 }} of
             {{ childAssignmentsQueue.length }}:
