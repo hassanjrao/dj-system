@@ -14,9 +14,9 @@ class AddEmailInClientsTable extends Migration
     public function up()
     {
         Schema::table('clients', function (Blueprint $table) {
-            $table->string('email')->nullable()->after('name')->unique();
-            $table->string('phone')->nullable()->after('email')->unique();
-            $table->text('notes')->nullable()->after('phone');
+            // $table->string('email')->nullable()->after('name')->unique();
+            // $table->string('phone')->nullable()->after('email')->unique();
+            // $table->text('notes')->nullable()->after('phone');
         });
     }
 

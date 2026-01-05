@@ -14,7 +14,7 @@ class AddNameInClientsTable extends Migration
     public function up()
     {
         Schema::table('clients', function (Blueprint $table) {
-            $table->string('name')->nullable()->after('id');
+            // $table->string('name')->nullable()->after('id');
         });
     }
 

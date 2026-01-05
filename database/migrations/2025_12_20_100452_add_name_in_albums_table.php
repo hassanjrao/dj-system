@@ -14,7 +14,7 @@ class AddNameInAlbumsTable extends Migration
     public function up()
     {
         Schema::table('albums', function (Blueprint $table) {
-            $table->string('name')->nullable()->after('id');
+            // $table->string('name')->nullable()->after('id');
             $table->softDeletes();
         });
     }
