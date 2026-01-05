@@ -253,7 +253,9 @@
                                                     <span class="nav-main-link-name">{{ $department->name }}</span>
                                                     @if ($deptCount > 0)
                                                         <span
-                                                            class="nav-main-link-badge badge rounded-pill bg-primary">{{ $deptCount }}</span>
+                                                            class="nav-main-link-badge badge rounded-pill bg-primary">
+                                                            {{ $deptCount }}
+                                                        </span>
                                                     @endif
                                                 </a>
                                             </li>
