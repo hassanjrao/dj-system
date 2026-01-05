@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +19,11 @@ use Illuminate\Support\Facades\Route;
 Auth::routes();
 
 Route::middleware(['auth'])->group(function () {
+
+    Route::prefix('dashboard')->name('dashboard.')->group(function () {
+
+        Route::get('/', [DashboardController::class, 'index'])->name('index');
+    });
 
     // Assignment routes
     Route::get('assignments/get-assignments', 'App\Http\Controllers\AssignmentController@getAssignments');
