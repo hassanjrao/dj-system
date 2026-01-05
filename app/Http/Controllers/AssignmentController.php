@@ -475,7 +475,6 @@ class AssignmentController extends Controller
         }
 
 
-
         // Handle notes
         if ($request->has('notes') && is_array($request->notes)) {
             $this->handleNotes($request->notes, $assignment, true); // true indicates update mode
@@ -710,7 +709,10 @@ class AssignmentController extends Controller
             $childData['song_id'] = $parentAssignment->song_id;
         }
 
-        $childAssignment = Assignment::create($childData);
+        $childAssignment = Assignment::firstOrCreate([
+            'department_id' => $childDepartmentId,
+            'parent_assignment_id' => $parentAssignment->id,
+        ],$childData);
 
 
         $this->handleDeliverables([], $childAssignment);
