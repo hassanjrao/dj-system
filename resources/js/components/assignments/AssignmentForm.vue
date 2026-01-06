@@ -89,21 +89,6 @@
           <v-row>
             <v-col cols="12" md="6">
               <v-autocomplete
-                v-model="formData.department_id"
-                :items="departments"
-                item-text="name"
-                item-value="id"
-                label="Department *"
-                :rules="[(v) => !!v || 'Department is required']"
-                @change="onDepartmentChange"
-                :search-input.sync="departmentSearch"
-                chips
-                small-chips
-                required
-              ></v-autocomplete>
-            </v-col>
-            <v-col cols="12" md="6">
-              <v-autocomplete
                 v-model="selectedClient"
                 :items="localClients"
                 item-text="name"
@@ -124,6 +109,21 @@
                   </v-list-item>
                 </template>
               </v-autocomplete>
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-autocomplete
+                v-model="formData.department_id"
+                :items="departments"
+                item-text="name"
+                item-value="id"
+                label="Department *"
+                :rules="[(v) => !!v || 'Department is required']"
+                @change="onDepartmentChange"
+                :search-input.sync="departmentSearch"
+                chips
+                small-chips
+                required
+              ></v-autocomplete>
             </v-col>
           </v-row>
         </v-form>
