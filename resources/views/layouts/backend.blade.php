@@ -199,25 +199,26 @@
                                     $departments = auth()->user()->departments;
                                 }
 
-                                // Get assignment counts per department (active assignments only)
-                                $assignmentCounts = \App\Models\Assignment::query()
-                                    // ->whereIn('assignment_status', [
-                                    //     'pending',
-                                    //     'in-progress',
-                                    //     'on-hold',
-                                    // ])
+                                // Get "My Assignments" counts per department (filtered by assigned_to_id)
+                                $myAssignmentCounts = \App\Models\Assignment::query()
+                                    ->where('assigned_to_id', auth()->id())
                                     ->selectRaw('department_id, count(*) as count')
                                     ->groupBy('department_id')
                                     ->pluck('count', 'department_id');
 
-                                // Get total assignments count (All)
-                                $totalAssignmentsCount = \App\Models\Assignment::query()
-                                    // ->whereIn('assignment_status', [
-                                    //     'pending',
-                                    //     'in-progress',
-                                    //     'on-hold',
-                                    // ])
+                                // Get total "My Assignments" count (All)
+                                $totalMyAssignmentsCount = \App\Models\Assignment::query()
+                                    ->where('assigned_to_id', auth()->id())
                                     ->count();
+
+                                // Get "All Assignments" counts per department (no filter)
+                                $allAssignmentCounts = \App\Models\Assignment::query()
+                                    ->selectRaw('department_id, count(*) as count')
+                                    ->groupBy('department_id')
+                                    ->pluck('count', 'department_id');
+
+                                // Get total "All Assignments" count (All)
+                                $totalAllAssignmentsCount = \App\Models\Assignment::query()->count();
 
                                 // Check if any department is active (or "All" is active)
                                 $isAssignmentsActive = request()->is('assignments');
@@ -236,15 +237,15 @@
                                                 href="{{ route('assignments.index') }}"
                                                 style="{{ request()->is('assignments') && !request()->get('department_id') ? 'color: red !important;' : '' }}">
                                                 <span class="nav-main-link-name">All</span>
-                                                @if ($totalAssignmentsCount > 0)
+                                                @if ($totalMyAssignmentsCount > 0)
                                                     <span
-                                                        class="nav-main-link-badge badge rounded-pill bg-primary">{{ $totalAssignmentsCount }}</span>
+                                                        class="nav-main-link-badge badge rounded-pill bg-primary">{{ $totalMyAssignmentsCount }}</span>
                                                 @endif
                                             </a>
                                         </li>
                                         @foreach ($departments as $department)
                                             @php
-                                                $deptCount = $assignmentCounts[$department->id] ?? 0;
+                                                $deptCount = $myAssignmentCounts[$department->id] ?? 0;
                                             @endphp
                                             <li class="nav-main-item">
                                                 <a class="nav-main-link{{ request()->is('assignments') && request()->get('department_id') == $department->id ? ' active' : '' }}"
@@ -254,6 +255,50 @@
                                                     @if ($deptCount > 0)
                                                         <span class="nav-main-link-badge badge rounded-pill bg-primary">
                                                             {{ $deptCount }}
+                                                        </span>
+                                                    @endif
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                </li>
+
+                                {{-- All Assignments Navigation --}}
+                                @php
+                                    // Check if "All Assignments" section is active
+                                    $isAllAssignmentsActive = request()->is('assignments/all*');
+                                @endphp
+                                <li class="nav-main-item{{ $isAllAssignmentsActive ? ' open' : '' }}">
+                                    <a class="nav-main-link nav-main-link-submenu" data-toggle="submenu"
+                                        aria-haspopup="true"
+                                        aria-expanded="{{ $isAllAssignmentsActive ? 'true' : 'false' }}" href="#">
+                                        <i class="nav-main-link-icon si si-grid"></i>
+                                        <span class="nav-main-link-name">All Assignments</span>
+                                    </a>
+                                    <ul class="nav-main-submenu">
+                                        <li class="nav-main-item">
+                                            <a class="nav-main-link{{ request()->is('assignments/all') && !request()->get('department_id') ? ' active' : '' }}"
+                                                href="{{ route('assignments.all') }}"
+                                                style="{{ request()->is('assignments/all') && !request()->get('department_id') ? 'color: red !important;' : '' }}">
+                                                <span class="nav-main-link-name">All</span>
+                                                @if ($totalAllAssignmentsCount > 0)
+                                                    <span
+                                                        class="nav-main-link-badge badge rounded-pill bg-primary">{{ $totalAllAssignmentsCount }}</span>
+                                                @endif
+                                            </a>
+                                        </li>
+                                        @foreach ($departments as $department)
+                                            @php
+                                                $allDeptCount = $allAssignmentCounts[$department->id] ?? 0;
+                                            @endphp
+                                            <li class="nav-main-item">
+                                                <a class="nav-main-link{{ request()->is('assignments/all') && request()->get('department_id') == $department->id ? ' active' : '' }}"
+                                                    href="{{ route('assignments.all', ['department_id' => $department->id]) }}"
+                                                    style="{{ request()->is('assignments/all') && request()->get('department_id') == $department->id ? 'color: red !important;' : '' }}">
+                                                    <span class="nav-main-link-name">{{ $department->name }}</span>
+                                                    @if ($allDeptCount > 0)
+                                                        <span class="nav-main-link-badge badge rounded-pill bg-primary">
+                                                            {{ $allDeptCount }}
                                                         </span>
                                                     @endif
                                                 </a>

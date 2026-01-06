@@ -33,6 +33,22 @@ class AssignmentController extends Controller
         return view('assignments.index', compact('departmentId'));
     }
 
+    public function allAssignments(Request $request)
+    {
+        $departmentId = $request->get('department_id');
+
+        // If department_id is provided, validate it exists
+        if ($departmentId) {
+            $department = Department::findOrFail($departmentId);
+        } else {
+            // For "All" option, set departmentId to null
+            $departmentId = null;
+            $department = null;
+        }
+
+        return view('assignments.all', compact('departmentId'));
+    }
+
     public function create()
     {
         $departments = Department::all();
@@ -846,6 +862,7 @@ class AssignmentController extends Controller
         $request->validate([
             'department_id' => 'nullable|exists:departments,id',
             'status' => 'required|in:all,active,completed', // This is for filtering, not the assignment_status field
+            'scope' => 'nullable|in:my,all', // 'my' shows only user's assignments, 'all' shows everyone's
             'client_id' => 'nullable|exists:clients,id',
             'search' => 'nullable|string|max:255',
         ]);
@@ -853,11 +870,17 @@ class AssignmentController extends Controller
         $user = Auth::user();
         $departmentId = $request->get('department_id');
         $status = $request->get('status'); // 'active' or 'completed'
+        $scope = $request->get('scope', 'my'); // Default to 'my'
         $clientId = $request->get('client_id');
         $search = $request->get('search');
 
         // Base query for all assignments (for counts)
         $baseQuery = Assignment::query();
+
+        // If scope is 'my', filter by assigned user
+        if ($scope === 'my') {
+            $baseQuery->where('assigned_to_id', $user->id);
+        }
 
         // If department_id is provided, filter by it
         if ($departmentId) {
@@ -891,6 +914,11 @@ class AssignmentController extends Controller
         $query = Assignment::with([
             'client', 'department', 'assignedTo', 'song', 'deliverables', 'status', 'createdBy'
         ]);
+
+        // If scope is 'my', filter by assigned user
+        if ($scope === 'my') {
+            $query->where('assigned_to_id', $user->id);
+        }
 
         // If department_id is provided, filter by it
         if ($departmentId) {

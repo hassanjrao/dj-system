@@ -197,6 +197,11 @@ export default {
       required: false,
       default: null,
     },
+    scope: {
+      type: String,
+      required: false,
+      default: "my", // 'my' or 'all'
+    },
   },
   data() {
     return {
@@ -261,6 +266,7 @@ export default {
       try {
         const params = {
           status: this.tabs[this.activeTab].key,
+          scope: this.scope, // Add scope parameter
         };
 
         // Only include department_id if it's provided (not null/undefined)
