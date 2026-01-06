@@ -55,7 +55,7 @@ class AssignmentController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'status', 'parentAssignment.song.artists', 'childAssignments'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'notes.updatedBy', 'status', 'parentAssignment.song.artists', 'childAssignments'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
@@ -69,12 +69,21 @@ class AssignmentController extends Controller
         }
 
         // Convert notes to array format for frontend
-        $assignment->notes = $assignment->notes->map(function ($note) {
+        $formattedNotes = $assignment->notes->map(function ($note) {
             return [
+                'id' => $note->id,
                 'note' => $note->note,
                 'note_for' => $note->note_for,
+                'created_by' => $note->creator->name ?? null,
+                'created_at' => $note->created_at ? $note->created_at->format('M j, Y, g:i A') : null,
+                'updated_by' => $note->updatedBy->name ?? null,
+                'updated_at' => $note->updated_at ? $note->updated_at->format('M j, Y, g:i A') : null,
             ];
         })->toArray();
+
+        // Unset the original relationship and set the formatted array
+        unset($assignment->notes);
+        $assignment->notes = $formattedNotes;
 
         // Ensure childAssignments is always an array (even if empty)
         $assignment->childAssignments = $assignment->childAssignments ? $assignment->childAssignments->toArray() : [];
@@ -119,6 +128,7 @@ class AssignmentController extends Controller
             'assignment_status' => 'nullable|exists:assignment_statuses,code',
             'parent_assignment_id' => 'nullable|exists:assignments,id',
             'notes' => 'nullable|array',
+            'notes.*.id' => 'nullable|exists:notes,id',
             'notes.*.note' => 'required|string',
             'notes.*.note_for' => 'required|in:me,team,admin',
             'child_departments' => 'nullable|array',
@@ -223,45 +233,47 @@ class AssignmentController extends Controller
 
     private function handleNotes(array $notes, Assignment $assignment, bool $isUpdate = false)
     {
+        $currentUserId = auth()->id();
+
         if ($isUpdate) {
-            // For updates, sync notes: delete removed ones, keep existing ones, create new ones
-            // This preserves created_at timestamps for existing notes
-
-            // Get existing notes and create a map by (note + note_for) as key
+            // For updates, track notes by ID instead of content
+            // Get existing notes
             $existingNotes = $assignment->notes()->get();
-            $existingNotesMap = [];
-            foreach ($existingNotes as $existingNote) {
-                $key = trim($existingNote->note) . '|' . $existingNote->note_for;
-                $existingNotesMap[$key] = $existingNote;
-            }
+            $existingNotesById = $existingNotes->keyBy('id');
 
-            // Create a map of requested notes
-            $requestedNotesMap = [];
+            // Collect IDs from the request
+            $requestedNoteIds = [];
+
             foreach ($notes as $noteData) {
                 if (!empty(trim($noteData['note']))) {
-                    $key = trim($noteData['note']) . '|' . $noteData['note_for'];
-                    $requestedNotesMap[$key] = $noteData;
+                    if (isset($noteData['id']) && $noteData['id']) {
+                        // Update existing note
+                        $requestedNoteIds[] = $noteData['id'];
+                        $note = Note::find($noteData['id']);
+                        if ($note && $note->assignment_id == $assignment->id) {
+                            $note->update([
+                                'note' => trim($noteData['note']),
+                                'note_for' => $noteData['note_for'],
+                                'updated_by' => $currentUserId,
+                            ]);
+                        }
+                    } else {
+                        // Create new note
+                        Note::create([
+                            'assignment_id' => $assignment->id,
+                            'note' => trim($noteData['note']),
+                            'created_by' => $currentUserId,
+                            'note_for' => $noteData['note_for'],
+                        ]);
+                    }
                 }
             }
 
-            // Delete notes that exist in DB but not in request
-            foreach ($existingNotesMap as $key => $existingNote) {
-                if (!isset($requestedNotesMap[$key])) {
-                    $existingNote->delete();
+            // Soft delete notes that exist in DB but not in request
+            foreach ($existingNotesById as $id => $existingNote) {
+                if (!in_array($id, $requestedNoteIds)) {
+                    $existingNote->delete(); // Soft delete
                 }
-            }
-
-            // Create notes that exist in request but not in DB
-            foreach ($requestedNotesMap as $key => $noteData) {
-                if (!isset($existingNotesMap[$key])) {
-                    Note::create([
-                        'assignment_id' => $assignment->id,
-                        'note' => trim($noteData['note']),
-                        'created_by' => $assignment->created_by,
-                        'note_for' => $noteData['note_for'],
-                    ]);
-                }
-                // If note exists in both, we keep it as-is (preserving created_at)
             }
         } else {
             // For creates, just create notes from request
@@ -270,7 +282,7 @@ class AssignmentController extends Controller
                     Note::create([
                         'assignment_id' => $assignment->id,
                         'note' => trim($noteData['note']),
-                        'created_by' => $assignment->created_by,
+                        'created_by' => $currentUserId,
                         'note_for' => $noteData['note_for'],
                     ]);
                 }
@@ -420,16 +432,25 @@ class AssignmentController extends Controller
             'parentAssignment',
             'childAssignments',
             'status',
-            'notes.creator'
+            'notes.creator',
+            'notes.updatedBy'
         ])->findOrFail($id);
 
-        $assignment->notes = $assignment->notes->map(function ($note) {
+        $formattedNotes = $assignment->notes->map(function ($note) {
             return [
+                'id' => $note->id,
                 'note' => $note->note,
                 'note_for' => $note->note_for,
+                'created_by' => $note->creator->name ?? null,
+                'created_at' => $note->created_at ? $note->created_at->format('M j, Y, g:i A') : null,
+                'updated_by' => $note->updatedBy->name ?? null,
+                'updated_at' => $note->updated_at ? $note->updated_at->format('M j, Y, g:i A') : null,
             ];
         })->toArray();
 
+        // Unset the original relationship and set the formatted array
+        unset($assignment->notes);
+        $assignment->notes = $formattedNotes;
 
         return response()->json($assignment);
     }
@@ -453,6 +474,7 @@ class AssignmentController extends Controller
             'reference_links' => 'nullable|string',
             'assignment_status' => 'nullable|exists:assignment_statuses,code',
             'notes' => 'nullable|array',
+            'notes.*.id' => 'nullable|exists:notes,id',
             'notes.*.note' => 'required|string',
             'notes.*.note_for' => 'required|in:me,team,admin',
         ]);

@@ -3,7 +3,7 @@
     <v-card>
       <v-card-title class="d-flex justify-space-between align-center">
         <div>
-          <span>{{ isEdit ? "Edit Assignment" : "Create Assignment" }}</span>
+          <span>{{ formTitle }}</span>
           <div class="text-caption grey--text">
             Step {{ currentStep }} of {{ 2 + childAssignmentsQueue.length }}
           </div>
@@ -136,11 +136,11 @@
           <v-row>
             <v-col cols="12" md="6">
               <v-autocomplete
-                v-model="formData.department_id"
-                :items="departments"
+                v-model="selectedClient"
+                :items="localClients"
                 item-text="name"
                 item-value="id"
-                label="Department"
+                label="Client"
                 disabled
                 chips
                 small-chips
@@ -148,11 +148,11 @@
             </v-col>
             <v-col cols="12" md="6">
               <v-autocomplete
-                v-model="selectedClient"
-                :items="localClients"
+                v-model="formData.department_id"
+                :items="departments"
                 item-text="name"
                 item-value="id"
-                label="Client"
+                label="Department"
                 disabled
                 chips
                 small-chips
@@ -168,7 +168,11 @@
                 :items="filteredUsers"
                 item-text="name"
                 item-value="id"
-                label="Assignment Assigned To *"
+                :label="
+                  selectedDepartmentName
+                    ? `${selectedDepartmentName} Assigned To *`
+                    : 'Assignment Assigned To *'
+                "
                 :rules="[(v) => !!v || 'Assigned user is required']"
                 :loading="loadingUsers"
                 chips
@@ -178,6 +182,7 @@
             </v-col>
           </v-row>
 
+          <v-divider class="my-6" style="border-width: 2px; opacity: 0.5"></v-divider>
           <!-- Department-specific forms -->
           <MusicCreationForm
             v-if="formData.department_id === departmentIds.musicCreationId"
@@ -202,8 +207,30 @@
             @update:modelValue="updateFormData"
           />
 
+          <!-- Link Child Assignments (Common for all departments) -->
+          <v-divider
+            v-if="availableChildDepartments.length > 0"
+            style="border-width: 2px; opacity: 0.5"
+          ></v-divider>
+          <v-subheader v-if="availableChildDepartments.length > 0"
+            >PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader
+          >
+          <v-row v-if="availableChildDepartments.length > 0">
+            <v-col cols="12">
+              <v-autocomplete
+                v-model="formData.child_departments"
+                :items="availableChildDepartments"
+                item-text="name"
+                item-value="id"
+                label="Select departments for child assignments"
+                multiple
+                chips
+                small-chips
+                :loading="loadingChildDepartments"
+              ></v-autocomplete>
+            </v-col>
+          </v-row>
           <!-- Common fields -->
-          <v-divider class="my-4"></v-divider>
 
           <!-- Notes Section -->
           <v-row>
@@ -245,19 +272,86 @@
                 <v-list-item
                   v-for="(note, index) in formData.notes"
                   :key="index"
-                  class="px-0"
+                  class="px-0 mb-3"
                   @click.stop
                 >
                   <v-list-item-content @click.stop>
-                    <v-list-item-title>
-                      <strong>{{ getNoteForLabel(note.note_for) }}:</strong>
-                      {{ note.note }}
-                    </v-list-item-title>
+                    <div v-if="editingNoteIndex !== index">
+                      <v-list-item-title>
+                        <strong>{{ getNoteForLabel(note.note_for) }}:</strong>
+                        <span v-html="linkifyText(note.note)"></span>
+                      </v-list-item-title>
+                      <v-list-item-subtitle class="text-caption mt-1">
+                        <div v-if="note.created_by">
+                          Added by:
+                          <span class="font-weight-medium">{{ note.created_by }}</span> on
+                          <span class="grey--text text--darken-1">{{
+                            note.created_at
+                          }}</span>
+                        </div>
+                        <div v-if="note.updated_by" class="orange--text text--darken-2">
+                          Updated by:
+                          <span class="font-weight-medium">{{ note.updated_by }}</span> on
+                          <span class="orange--text text--darken-1">{{
+                            note.updated_at
+                          }}</span>
+                        </div>
+                      </v-list-item-subtitle>
+                    </div>
+                    <div v-else>
+                      <v-text-field
+                        v-model="editingNote.note"
+                        label="Edit Note"
+                        dense
+                        @click.stop
+                      ></v-text-field>
+                      <v-autocomplete
+                        v-model="editingNote.note_for"
+                        :items="noteForOptions"
+                        item-text="label"
+                        item-value="value"
+                        label="Note For"
+                        dense
+                        chips
+                        small-chips
+                        @click.stop
+                      ></v-autocomplete>
+                    </div>
                   </v-list-item-content>
                   <v-list-item-action @click.stop>
-                    <v-btn icon small color="error" @click.stop="removeNote(index)">
-                      <v-icon small>mdi-delete</v-icon>
-                    </v-btn>
+                    <div v-if="editingNoteIndex !== index" class="d-flex flex-column">
+                      <v-btn
+                        icon
+                        small
+                        color="primary"
+                        @click.stop="startEditNote(index)"
+                        class="mb-1"
+                      >
+                        <v-icon small>mdi-pencil</v-icon>
+                      </v-btn>
+                      <v-btn
+                        icon
+                        small
+                        color="error"
+                        @click.stop="confirmDeleteNote(index)"
+                      >
+                        <v-icon small>mdi-delete</v-icon>
+                      </v-btn>
+                    </div>
+                    <div v-else class="d-flex flex-column">
+                      <v-btn
+                        icon
+                        small
+                        color="success"
+                        @click.stop="saveEditNote(index)"
+                        class="mb-1"
+                      >
+                        <v-icon small>mdi-check</v-icon>
+                      </v-btn>
+                      <v-btn icon small @click.stop="cancelEditNote">
+                        <v-icon small>mdi-close</v-icon>
+                      </v-btn>
+                    </div>
                   </v-list-item-action>
                 </v-list-item>
               </v-list>
@@ -271,27 +365,6 @@
                 label="Reference Links (one per line)"
                 rows="3"
               ></v-textarea>
-            </v-col>
-          </v-row>
-
-          <!-- Link Child Assignments (Common for all departments) -->
-          <v-divider v-if="availableChildDepartments.length > 0" class="my-4"></v-divider>
-          <v-subheader v-if="availableChildDepartments.length > 0"
-            >PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader
-          >
-          <v-row v-if="availableChildDepartments.length > 0">
-            <v-col cols="12">
-              <v-autocomplete
-                v-model="formData.child_departments"
-                :items="availableChildDepartments"
-                item-text="name"
-                item-value="id"
-                label="Select departments for child assignments"
-                multiple
-                chips
-                small-chips
-                :loading="loadingChildDepartments"
-              ></v-autocomplete>
             </v-col>
           </v-row>
         </v-form>
@@ -316,7 +389,11 @@
                 :items="filteredUsers"
                 item-text="name"
                 item-value="id"
-                label="Assignment Assigned To *"
+                :label="
+                  selectedDepartmentName
+                    ? `${selectedDepartmentName} Assigned To *`
+                    : 'Assignment Assigned To *'
+                "
                 :rules="[(v) => !!v || 'Assigned user is required']"
                 :loading="loadingUsers"
                 chips
@@ -393,19 +470,80 @@
                 <v-list-item
                   v-for="(note, index) in formData.notes"
                   :key="index"
-                  class="px-0"
+                  class="px-0 mb-3"
                   @click.stop
                 >
                   <v-list-item-content @click.stop>
-                    <v-list-item-title>
-                      <strong>{{ getNoteForLabel(note.note_for) }}:</strong>
-                      {{ note.note }}
-                    </v-list-item-title>
+                    <div v-if="editingNoteIndex !== index">
+                      <v-list-item-title>
+                        <strong>{{ getNoteForLabel(note.note_for) }}:</strong>
+                        <span v-html="linkifyText(note.note)"></span>
+                      </v-list-item-title>
+                      <v-list-item-subtitle class="text-caption mt-1">
+                        <div v-if="note.created_by">
+                          Created by {{ note.created_by }} on
+                          {{ note.created_at }}
+                        </div>
+                        <div v-if="note.updated_by">
+                          Updated by {{ note.updated_by }} on
+                          {{ note.updated_at }}
+                        </div>
+                      </v-list-item-subtitle>
+                    </div>
+                    <div v-else>
+                      <v-text-field
+                        v-model="editingNote.note"
+                        label="Edit Note"
+                        dense
+                        @click.stop
+                      ></v-text-field>
+                      <v-autocomplete
+                        v-model="editingNote.note_for"
+                        :items="noteForOptions"
+                        item-text="label"
+                        item-value="value"
+                        label="Note For"
+                        dense
+                        chips
+                        small-chips
+                        @click.stop
+                      ></v-autocomplete>
+                    </div>
                   </v-list-item-content>
                   <v-list-item-action @click.stop>
-                    <v-btn icon small color="error" @click.stop="removeNote(index)">
-                      <v-icon small>mdi-delete</v-icon>
-                    </v-btn>
+                    <div v-if="editingNoteIndex !== index" class="d-flex flex-column">
+                      <v-btn
+                        icon
+                        small
+                        color="primary"
+                        @click.stop="startEditNote(index)"
+                        class="mb-1"
+                      >
+                        <v-icon small>mdi-pencil</v-icon>
+                      </v-btn>
+                      <v-btn
+                        icon
+                        small
+                        color="error"
+                        @click.stop="confirmDeleteNote(index)"
+                      >
+                        <v-icon small>mdi-delete</v-icon>
+                      </v-btn>
+                    </div>
+                    <div v-else class="d-flex flex-column">
+                      <v-btn
+                        icon
+                        small
+                        color="success"
+                        @click.stop="saveEditNote(index)"
+                        class="mb-1"
+                      >
+                        <v-icon small>mdi-check</v-icon>
+                      </v-btn>
+                      <v-btn icon small @click.stop="cancelEditNote">
+                        <v-icon small>mdi-close</v-icon>
+                      </v-btn>
+                    </div>
                   </v-list-item-action>
                 </v-list-item>
               </v-list>
@@ -451,6 +589,20 @@
           <v-btn color="primary" small :disabled="!clientFormValid" @click="createClient"
             >Create</v-btn
           >
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Note Deletion Confirmation Dialog -->
+    <v-dialog v-model="showDeleteNoteDialog" max-width="400">
+      <v-card>
+        <v-card-title>Confirm Deletion</v-card-title>
+        <v-card-text>
+          Are you sure you want to delete this note? This action cannot be undone.
+        </v-card-text>
+        <v-card-actions class="justify-end">
+          <v-btn text small @click="showDeleteNoteDialog = false">Cancel</v-btn>
+          <v-btn color="error" small @click="deleteNote">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -512,6 +664,31 @@ export default {
     currentUser() {
       return this.$store.getters["auth/user"];
     },
+    selectedDepartmentName() {
+      if (!this.formData.department_id || !this.departments.length) {
+        return "";
+      }
+      const department = this.departments.find(
+        (d) => d.id === this.formData.department_id
+      );
+      return department ? department.name : "";
+    },
+    formTitle() {
+      if (this.isEdit) {
+        if (this.selectedDepartmentName) {
+          return `Edit ${this.selectedDepartmentName} Assignment`;
+        }
+        return "Edit Assignment";
+      }
+      if (this.selectedDepartmentName) {
+        return `Create ${this.selectedDepartmentName} Assignment`;
+      }
+      return "Create Assignment";
+    },
+    currentAssignmentData() {
+      // Return prop if available, otherwise return loaded data
+      return this.assignmentData || this.loadedAssignmentData;
+    },
   },
   data() {
     return {
@@ -542,6 +719,13 @@ export default {
         note: "",
         note_for: null,
       },
+      editingNoteIndex: null,
+      editingNote: {
+        note: "",
+        note_for: null,
+      },
+      showDeleteNoteDialog: false,
+      noteToDelete: null,
       noteForOptions: [
         { label: "Me", value: "me" },
         { label: "Team", value: "team" },
@@ -1065,6 +1249,8 @@ export default {
         if (!this.formData.notes) {
           this.formData.notes = [];
         }
+
+        // Add note without metadata - backend will set created_by and timestamps
         this.formData.notes.push({
           note: this.newNote.note.trim(),
           note_for: this.newNote.note_for,
@@ -1078,23 +1264,77 @@ export default {
       }
     },
 
-    removeNote(index) {
-      if (this.formData.notes && this.formData.notes.length > index) {
-        this.formData.notes.splice(index, 1);
+    startEditNote(index) {
+      this.editingNoteIndex = index;
+      this.editingNote = {
+        note: this.formData.notes[index].note,
+        note_for: this.formData.notes[index].note_for,
+      };
+    },
+
+    saveEditNote(index) {
+      if (
+        this.editingNote.note &&
+        this.editingNote.note.trim() &&
+        this.editingNote.note_for
+      ) {
+        // Update note preserving ID so backend knows to update, not create
+        // Backend will set updated_by and updated_at
+        this.formData.notes[index] = {
+          ...this.formData.notes[index],
+          note: this.editingNote.note.trim(),
+          note_for: this.editingNote.note_for,
+        };
+        this.cancelEditNote();
+        this.updateModel();
+      }
+    },
+
+    cancelEditNote() {
+      this.editingNoteIndex = null;
+      this.editingNote = {
+        note: "",
+        note_for: null,
+      };
+    },
+
+    confirmDeleteNote(index) {
+      this.noteToDelete = index;
+      this.showDeleteNoteDialog = true;
+    },
+
+    deleteNote() {
+      if (
+        this.noteToDelete !== null &&
+        this.formData.notes &&
+        this.formData.notes.length > this.noteToDelete
+      ) {
+        this.formData.notes.splice(this.noteToDelete, 1);
+        this.showDeleteNoteDialog = false;
+        this.noteToDelete = null;
         this.$nextTick(() => {
           this.updateModel();
         });
       }
     },
+
+    removeNote(index) {
+      // Keep this for backward compatibility but redirect to confirmDeleteNote
+      this.confirmDeleteNote(index);
+    },
+
+    linkifyText(text) {
+      if (!text) return "";
+      // Regular expression to detect URLs
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      return text.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #1976d2; text-decoration: underline;">${url}</a>`;
+      });
+    },
+
     getNoteForLabel(value) {
       const option = this.noteForOptions.find((opt) => opt.value === value);
       return option ? option.label : value;
-    },
-  },
-  computed: {
-    currentAssignmentData() {
-      // Return prop if available, otherwise return loaded data
-      return this.assignmentData || this.loadedAssignmentData;
     },
   },
   watch: {

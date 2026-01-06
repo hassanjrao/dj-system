@@ -5,19 +5,6 @@
       <v-col cols="12" md="6">
         <!-- Assigned To is handled in parent AssignmentForm -->
 
-        <!-- Music Type -->
-        <v-autocomplete
-          v-model="songData.music_type_id"
-          :items="lookupData.music_types || []"
-          item-text="name"
-          item-value="id"
-          label="Music Type *"
-          :rules="[(v) => !!v || 'Music type is required']"
-          chips
-          small-chips
-          required
-        ></v-autocomplete>
-
         <!-- Song Name -->
         <v-text-field
           v-model="songData.name"
@@ -70,6 +57,19 @@
             </v-list-item>
           </template>
         </v-autocomplete>
+
+         <!-- Music Type -->
+         <v-autocomplete
+          v-model="songData.music_type_id"
+          :items="lookupData.music_types || []"
+          item-text="name"
+          item-value="id"
+          label="Music Type *"
+          :rules="[(v) => !!v || 'Music type is required']"
+          chips
+          small-chips
+          required
+        ></v-autocomplete>
       </v-col>
 
       <!-- Right Column -->
