@@ -819,7 +819,7 @@ class AssignmentController extends Controller
         ->where('music_type_id', $musicTypeId)
         ->where('department_id', $departmentId)
         ->first();
-        
+
         return response()->json([
             'days_before_release' => $completionDay->days_before_release ?? 7
         ]);
@@ -923,6 +923,7 @@ class AssignmentController extends Controller
                 'assignment_id' => $assignment->assignment_id, // Accessor from model (requires department)
                 'assignment_display_name' => $assignment->song ? $assignment->song->name : $assignment->assignment_name,
                 'completion_date' => $assignment->completion_date ? $assignment->completion_date->diffForHumans() : null,
+                'release_date' => $assignment->song ? $assignment->song->release_date->diffForHumans() : null,
                 'assignment_status' => $assignment->assignment_status,
                 'department' => $assignment->department ? [
                     'id' => $assignment->department->id,

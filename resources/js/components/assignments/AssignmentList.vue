@@ -24,7 +24,7 @@
             <v-tooltip bottom>
               <template v-slot:activator="{ on, attrs }">
                 <v-btn
-                v-if="$store.getters['auth/hasPermission']('create-assignments')"
+                  v-if="$store.getters['auth/hasPermission']('create-assignments')"
                   color="success"
                   v-bind="attrs"
                   v-on="on"
@@ -117,6 +117,12 @@
                   </div>
                 </div>
               </template>
+              <template v-slot:item.completion_date="{ item }">
+                {{ item.completion_date }}
+              </template>
+              <template v-slot:item.release_date="{ item }">
+                {{ item.release_date }}
+              </template>
               <template v-slot:item.client.name="{ item }">
                 {{ item.client ? item.client.name : "N/A" }}
               </template>
@@ -185,21 +191,7 @@ export default {
       overdueCount: 0,
       completedCount: 0,
       canCreate: false,
-      headers: [
-        { text: "Assignment ID", value: "assignment_id", sortable: false },
-        { text: "Due Date", value: "completion_date", sortable: true },
-        { text: "Assignment", value: "assignment_name", sortable: false },
-        { text: "Client", value: "client.name", sortable: false },
-        { text: "Deliverables", value: "deliverables", sortable: false },
-        { text: "Status", value: "assignment_status", sortable: false },
-        {
-          text: "Actions",
-          value: "actions",
-          sortable: false,
-          align: "center",
-          width: "100",
-        },
-      ],
+      headers: [],
       searchTimeout: null,
       tabs: [
         { index: 0, key: "all", label: "My Assignments" },
@@ -211,12 +203,41 @@ export default {
   },
   mounted() {
     console.log("departmentId", this.departmentId);
+    // Initialize headers based on department
+    this.initializeHeaders();
     // Load clients for filter
     this.loadClients();
     // Load data (works for both "All" and specific department)
     this.getAssignments();
   },
   methods: {
+    initializeHeaders() {
+      const baseHeaders = [
+        { text: "Assignment ID", value: "assignment_id", sortable: false },
+        { text: "Due Date", value: "completion_date", sortable: true },
+      ];
+
+      // Add Release Date column only for Music Creation department (ID = 1)
+      if (this.departmentId == 1) {
+        baseHeaders.push({ text: "Release Date", value: "release_date", sortable: true });
+      }
+
+      baseHeaders.push(
+        { text: "Assignment", value: "assignment_name", sortable: false },
+        { text: "Client", value: "client.name", sortable: false },
+        { text: "Deliverables", value: "deliverables", sortable: false },
+        { text: "Status", value: "assignment_status", sortable: false },
+        {
+          text: "Actions",
+          value: "actions",
+          sortable: false,
+          align: "center",
+          width: "100",
+        }
+      );
+
+      this.headers = baseHeaders;
+    },
     async getAssignments() {
       this.loading = true;
       try {
