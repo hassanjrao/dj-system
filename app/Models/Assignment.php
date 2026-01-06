@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Assignment extends Model
 {
@@ -17,6 +18,27 @@ class Assignment extends Model
     ];
 
     protected $appends = ['assignment_id'];
+
+    /**
+     * Boot the model and set up event listeners
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Auto-assign department sequence number when creating new assignment
+        static::creating(function ($assignment) {
+            if ($assignment->department_id && !$assignment->department_sequence_number) {
+                // Use transaction with row locking to prevent race conditions
+                DB::transaction(function () use ($assignment) {
+                    $maxSeq = static::where('department_id', $assignment->department_id)
+                        ->lockForUpdate()
+                        ->max('department_sequence_number') ?? 0;
+                    $assignment->department_sequence_number = $maxSeq + 1;
+                }, 5); // 5 second timeout to prevent deadlock
+            }
+        });
+    }
 
     public function client()
     {
@@ -97,12 +119,13 @@ class Assignment extends Model
 
     /**
      * Get formatted assignment ID with department initials
-     * Format: [Department Initials][4 zeros][Assignment ID]
-     * Example: MC00001 for Music Creation department, assignment ID 1
+     * Format: [Department Initials][5-digit sequence]
+     * Example: MC00001 for Music Creation department, sequence 1
      */
     public function getAssignmentIdAttribute()
     {
-        if (!$this->department) {
+        // Fallback to global ID if department or sequence number is missing
+        if (!$this->department || !$this->department_sequence_number) {
             return str_pad($this->id, 5, '0', STR_PAD_LEFT);
         }
 
@@ -115,10 +138,9 @@ class Assignment extends Model
             }
         }
 
-        // Format: [Initials][4 zeros][ID]
-        // Pad ID to 5 digits total (4 zeros + ID)
-        $paddedId = str_pad($this->id, 5, '0', STR_PAD_LEFT);
+        // Format: [Initials][5-digit padded sequence]
+        $paddedSeq = str_pad($this->department_sequence_number, 5, '0', STR_PAD_LEFT);
 
-        return $initials . $paddedId;
+        return $initials . $paddedSeq;
     }
 }
