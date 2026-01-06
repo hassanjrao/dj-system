@@ -7,7 +7,7 @@
 @section('content')
     <div id="vue-app">
 
-        <div class="content">
+        <div class="content pb-5">
             <assignment-form :is-edit="false">
             </assignment-form>
         </div>
