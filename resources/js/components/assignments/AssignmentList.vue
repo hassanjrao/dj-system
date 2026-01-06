@@ -113,7 +113,7 @@
                     {{ item.assignment_display_name || "N/A" }}
                   </div>
                   <div class="text-caption text--secondary">
-                    {{ item.created_by ? item.created_by.name : "N/A" }}
+                    {{ item.assigned_to ? item.assigned_to.name : "N/A" }}
                   </div>
                 </div>
               </template>
