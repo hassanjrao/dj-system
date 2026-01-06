@@ -212,6 +212,7 @@
             v-if="availableChildDepartments.length > 0"
             style="border-width: 2px; opacity: 0.5"
           ></v-divider>
+          
           <v-subheader v-if="availableChildDepartments.length > 0"
             >PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader
           >
