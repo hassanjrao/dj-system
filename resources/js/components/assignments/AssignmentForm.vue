@@ -232,6 +232,7 @@
           </v-row>
           <!-- Common fields -->
 
+          <v-divider style="border-width: 2px; opacity: 0.5"></v-divider>
           <!-- Notes Section -->
           <v-row>
             <v-col cols="12">
