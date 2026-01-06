@@ -357,16 +357,6 @@
               </v-list>
             </v-col>
           </v-row>
-
-          <v-row>
-            <v-col cols="12">
-              <v-textarea
-                v-model="formData.reference_links"
-                label="Reference Links (one per line)"
-                rows="3"
-              ></v-textarea>
-            </v-col>
-          </v-row>
         </v-form>
 
         <!-- Step 3+: Child Assignment Forms -->
@@ -547,16 +537,6 @@
                   </v-list-item-action>
                 </v-list-item>
               </v-list>
-            </v-col>
-          </v-row>
-
-          <v-row>
-            <v-col cols="12">
-              <v-textarea
-                v-model="formData.reference_links"
-                label="Reference Links (one per line)"
-                rows="3"
-              ></v-textarea>
             </v-col>
           </v-row>
         </v-form>

@@ -124,7 +124,6 @@ class AssignmentController extends Controller
             'assigned_to_id' => 'nullable|exists:users,id',
             'assignment_name' => 'nullable|string|max:255',
             'completion_date' => 'nullable|date',
-            'reference_links' => 'nullable|string',
             'assignment_status' => 'nullable|exists:assignment_statuses,code',
             'parent_assignment_id' => 'nullable|exists:assignments,id',
             'notes' => 'nullable|array',
@@ -148,7 +147,6 @@ class AssignmentController extends Controller
             'assigned_to_id' => $validated['assigned_to_id'],
             'assignment_name' => $validated['assignment_name'] ?? null,
             'completion_date' => $validated['completion_date'] ?? null,
-            'reference_links' => $validated['reference_links'] ?? null,
             'assignment_status' => $validated['assignment_status'],
             'created_by' => Auth::id(),
         ]);
@@ -471,7 +469,6 @@ class AssignmentController extends Controller
             'assigned_to_id' => 'nullable|exists:users,id',
             'assignment_name' => 'nullable|string|max:255',
             'completion_date' => 'nullable|date',
-            'reference_links' => 'nullable|string',
             'assignment_status' => 'nullable|exists:assignment_statuses,code',
             'notes' => 'nullable|array',
             'notes.*.id' => 'nullable|exists:notes,id',
@@ -492,9 +489,6 @@ class AssignmentController extends Controller
         }
         if (array_key_exists('completion_date', $validated)) {
             $updateData['completion_date'] = $validated['completion_date'];
-        }
-        if (array_key_exists('reference_links', $validated)) {
-            $updateData['reference_links'] = $validated['reference_links'];
         }
         if (array_key_exists('assignment_status', $validated)) {
             $updateData['assignment_status'] = $validated['assignment_status'];
