@@ -917,13 +917,55 @@ class AssignmentController extends Controller
         $assignments = $query->get();
 
         // Return only needed fields for frontend
-        $assignments = $assignments->map(function ($assignment) {
+        $assignments = $assignments->map(function ($assignment) use ($today) {
+            // Format completion date
+            $completionDateFormatted = null;
+            $completionDateDays = null;
+            if ($assignment->completion_date) {
+                // Format: "Fri, Jan 28"
+                $completionDateFormatted = $assignment->completion_date->format('D, M j');
+
+                // Calculate days remaining or overdue
+                $daysRemaining = $today->diffInDays($assignment->completion_date, false);
+                if ($daysRemaining < 0) {
+                    $completionDateDays = abs($daysRemaining) . ' days overdue';
+                } elseif ($daysRemaining == 0) {
+                    $completionDateDays = 'Due today';
+                } elseif ($daysRemaining == 1) {
+                    $completionDateDays = '1 day to go';
+                } else {
+                    $completionDateDays = $daysRemaining . ' days to go';
+                }
+            }
+
+            // Format release date
+            $releaseDateFormatted = null;
+            $releaseDateDays = null;
+            if ($assignment->song && $assignment->song->release_date) {
+                // Format: "Fri, Jan 28"
+                $releaseDateFormatted = $assignment->song->release_date->format('D, M j');
+
+                // Calculate days remaining or overdue
+                $daysRemaining = $today->diffInDays($assignment->song->release_date, false);
+                if ($daysRemaining < 0) {
+                    $releaseDateDays = abs($daysRemaining) . ' days overdue';
+                } elseif ($daysRemaining == 0) {
+                    $releaseDateDays = 'Today';
+                } elseif ($daysRemaining == 1) {
+                    $releaseDateDays = '1 day to go';
+                } else {
+                    $releaseDateDays = $daysRemaining . ' days to go';
+                }
+            }
+
             return [
                 'id' => $assignment->id,
                 'assignment_id' => $assignment->assignment_id, // Accessor from model (requires department)
                 'assignment_display_name' => $assignment->song ? $assignment->song->name : $assignment->assignment_name,
-                'completion_date' => $assignment->completion_date ? $assignment->completion_date->diffForHumans() : null,
-                'release_date' => $assignment->song ? $assignment->song->release_date->diffForHumans() : null,
+                'completion_date' => $completionDateFormatted,
+                'completion_date_days' => $completionDateDays,
+                'release_date' => $releaseDateFormatted,
+                'release_date_days' => $releaseDateDays,
                 'assignment_status' => $assignment->assignment_status,
                 'department' => $assignment->department ? [
                     'id' => $assignment->department->id,

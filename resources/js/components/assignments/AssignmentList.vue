@@ -118,10 +118,28 @@
                 </div>
               </template>
               <template v-slot:item.completion_date="{ item }">
-                {{ item.completion_date }}
+                <div v-if="item.completion_date">
+                  <div class="font-weight-medium">{{ item.completion_date }}</div>
+                  <div
+                    class="text-caption"
+                    :class="getDaysRemainingClass(item.completion_date_days)"
+                  >
+                    {{ item.completion_date_days }}
+                  </div>
+                </div>
+                <span v-else class="text--secondary">N/A</span>
               </template>
               <template v-slot:item.release_date="{ item }">
-                {{ item.release_date }}
+                <div v-if="item.release_date">
+                  <div class="font-weight-medium">{{ item.release_date }}</div>
+                  <div
+                    class="text-caption"
+                    :class="getDaysRemainingClass(item.release_date_days)"
+                  >
+                    {{ item.release_date_days }}
+                  </div>
+                </div>
+                <span v-else class="text--secondary">N/A</span>
               </template>
               <template v-slot:item.client.name="{ item }">
                 {{ item.client ? item.client.name : "N/A" }}
@@ -316,11 +334,21 @@ export default {
       };
       return colors[status] || "grey";
     },
-    getDaysRemainingClass(days) {
-      if (days === null) return "";
-      if (days < 0) return "red--text font-weight-bold";
-      if (days <= 3) return "orange--text";
-      return "green--text";
+    getDaysRemainingClass(daysText) {
+      if (!daysText) return "";
+      if (daysText.includes("overdue")) return "red--text font-weight-bold";
+      if (daysText.includes("today") || daysText.includes("Today"))
+        return "orange--text font-weight-bold";
+
+      // Extract number from text like "3 days to go"
+      const match = daysText.match(/(\d+)\s+day/);
+      if (match) {
+        const days = parseInt(match[1]);
+        if (days <= 3) return "orange--text";
+        return "green--text";
+      }
+
+      return "";
     },
   },
 };
