@@ -71,7 +71,7 @@ class AssignmentController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'notes.updatedBy', 'status', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.status', 'childAssignments.department'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'notes.updatedBy', 'status', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.status', 'childAssignments.department', 'createdBy'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
@@ -120,6 +120,11 @@ class AssignmentController extends Controller
             })->toArray();
         }
         $assignment->childAssignments = $formattedChildAssignments;
+
+        // Add creation and update information for frontend
+        $assignment->created_by_name = $assignment->createdBy ? $assignment->createdBy->name : null;
+        $assignment->created_at_formatted = $assignment->created_at ? $assignment->created_at->format('M j, Y, g:i A') : null;
+        $assignment->updated_at_formatted = $assignment->updated_at ? $assignment->updated_at->format('M j, Y, g:i A') : null;
 
         $departments = Department::all();
         $clients = \App\Models\Client::orderBy('name')->get();

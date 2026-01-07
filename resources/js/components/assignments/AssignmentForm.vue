@@ -7,6 +7,20 @@
           <div class="text-caption grey--text">
             Step {{ currentStep }} of {{ 2 + childAssignmentsQueue.length }}
           </div>
+          <!-- Creation and Update Info (Edit Mode Only) -->
+          <div v-if="isEdit && formData.created_at_formatted" class="mt-2">
+            <div class="text-caption">
+              <span class="font-weight-medium">Created:</span>
+              <span v-if="formData.created_by_name"
+                >{{ formData.created_by_name }} on
+              </span>
+              <span>{{ formData.created_at_formatted }}</span>
+            </div>
+            <div v-if="formData.updated_at_formatted" class="text-caption">
+              <span class="font-weight-medium">Last Updated:</span>
+              <span>{{ formData.updated_at_formatted }}</span>
+            </div>
+          </div>
         </div>
         <div class="d-flex align-center">
           <v-btn text small @click="cancel" class="mr-2">Cancel</v-btn>
