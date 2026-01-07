@@ -179,12 +179,17 @@ class AssignmentController extends Controller
             }
         }
 
+        $completedDate = $validated['completion_date'] ?? null;
+        if (!$completedDate && $request->has('song_completion_date')) {
+            $completedDate = $request->song_completion_date;
+        }
+
         $assignment = Assignment::create([
             'client_id' => $validated['client_id'],
             'department_id' => $validated['department_id'],
             'assigned_to_id' => $validated['assigned_to_id'],
             'assignment_name' => $validated['assignment_name'] ?? null,
-            'completion_date' => $validated['completion_date'] ?? null,
+            'completion_date' => $completedDate,
             'assignment_status' => $validated['assignment_status'],
             'created_by' => Auth::id(),
         ]);
@@ -198,9 +203,31 @@ class AssignmentController extends Controller
         // Department-specific validation and processing
         $department = Department::findOrFail($request->department_id);
 
+        // Check if user role is 'user' and department is 'music-creation'
+        // Users cannot set release_date or create child assignments for MUSIC CREATION
+        $user = Auth::user();
+        $isUserRole = $user->hasRole('user');
+        $isMusicCreation = $department->slug === 'music-creation';
+
+        if ($isUserRole && $isMusicCreation) {
+            // Prevent setting release_date for users
+            if ($request->has('song_release_date') && $request->song_release_date) {
+                return response()->json([
+                    'error' => 'Users cannot set release date for MUSIC CREATION assignments. Release date is required to create child assignments.'
+                ], 422);
+            }
+
+            // Prevent creating child assignments for users
+            if ($request->has('child_departments') && is_array($request->child_departments) && count($request->child_departments) > 0) {
+                return response()->json([
+                    'error' => 'Users cannot create child assignments for MUSIC CREATION assignments. Release date must be set to create child assignments.'
+                ], 422);
+            }
+        }
+
         // Department-specific validation
         if ($department->slug === 'music-creation') {
-            $assignment = $this->processMusicCreationData($request, $validated, $assignment);
+            $assignment = $this->processMusicCreationData($request, $validated, $assignment, $isUserRole);
         } elseif ($department->slug === 'music-mastering') {
             $assignment = $this->processMusicMasteringData($request, $validated, $assignment);
         }
@@ -326,7 +353,7 @@ class AssignmentController extends Controller
         }
     }
 
-    private function processMusicCreationData(Request $request, array $validated, Assignment $assignment): Assignment
+    private function processMusicCreationData(Request $request, array $validated, Assignment $assignment, bool $isUserRole = false): Assignment
     {
         $validated = array_merge($validated, $request->validate([
             'song_id' => 'nullable|exists:songs,id',
@@ -358,9 +385,13 @@ class AssignmentController extends Controller
                 'music_genre_id' => $request->song_music_genre_id ?? $song->music_genre_id,
                 'bpm' => $request->song_bpm ?? $song->bpm,
                 'music_key_id' => $request->song_music_key_id ?? $song->music_key_id,
-                'release_date' => $request->song_release_date ?? $song->release_date,
                 'completion_date' => $request->song_completion_date ?? $song->completion_date,
             ];
+
+            // Users cannot set release_date for MUSIC CREATION assignments
+            if (!$isUserRole) {
+                $songData['release_date'] = $request->song_release_date ?? $song->release_date;
+            }
 
             $song->update($songData);
 
@@ -374,9 +405,14 @@ class AssignmentController extends Controller
                 'music_genre_id' => $request->song_music_genre_id,
                 'bpm' => $request->song_bpm,
                 'music_key_id' => $request->song_music_key_id,
-                'release_date' => $request->song_release_date,
                 'completion_date' => $request->song_completion_date,
             ];
+
+            // Users cannot set release_date for MUSIC CREATION assignments
+            if (!$isUserRole) {
+                $songData['release_date'] = $request->song_release_date;
+            }
+
             $song = Song::create(array_filter($songData));
             $validated['song_id'] = $song->id;
 
@@ -554,9 +590,31 @@ class AssignmentController extends Controller
         // Department-specific validation and processing
         $department = $assignment->department;
 
+        // Check if user role is 'user' and department is 'music-creation'
+        // Users cannot set release_date or create child assignments for MUSIC CREATION
+        $user = Auth::user();
+        $isUserRole = $user->hasRole('user');
+        $isMusicCreation = $department->slug === 'music-creation';
+
+        if ($isUserRole && $isMusicCreation) {
+            // Prevent setting release_date for users
+            if ($request->has('song_release_date') && $request->song_release_date) {
+                return response()->json([
+                    'error' => 'Users cannot set release date for MUSIC CREATION assignments. Release date is required to create child assignments.'
+                ], 422);
+            }
+
+            // Prevent creating child assignments for users
+            if ($request->has('child_departments') && is_array($request->child_departments) && count($request->child_departments) > 0) {
+                return response()->json([
+                    'error' => 'Users cannot create child assignments for MUSIC CREATION assignments. Release date must be set to create child assignments.'
+                ], 422);
+            }
+        }
+
         // Department-specific processing
         if ($department->slug === 'music-creation') {
-            $assignment = $this->processMusicCreationData($request, $validated, $assignment);
+            $assignment = $this->processMusicCreationData($request, $validated, $assignment, $isUserRole);
         } elseif ($department->slug === 'music-mastering') {
             $assignment = $this->processMusicMasteringData($request, $validated, $assignment, true);
             // Handle deliverables
@@ -819,16 +877,8 @@ class AssignmentController extends Controller
             return true;
         }
 
-        if ($user->hasRole('view-all-edit-assigned')) {
-            // Can only edit assigned departments (many-to-many)
-            $userDepartmentIds = $user->departments()->pluck('departments.id');
-            return $userDepartmentIds->contains($assignment->department_id);
-        }
-
-        if ($user->hasRole('view-all-update-assigned')) {
-            // Can only update assigned departments (many-to-many)
-            $userDepartmentIds = $user->departments()->pluck('departments.id');
-            return $userDepartmentIds->contains($assignment->department_id);
+        if ($user->hasRole('user') && $assignment->created_by == $user->id) {
+            return true;
         }
 
         return false;
@@ -917,6 +967,9 @@ class AssignmentController extends Controller
             $baseQuery->where('department_id', $departmentId);
         }
 
+        // Apply MUSIC CREATION restriction for users with role 'user'
+        $baseQuery->restrictMusicCreationForUsers($user);
+
         $activeStatusCodes = AssignmentStatus::whereIn('code', ['pending', 'in-progress', 'on-hold'])->pluck('code')->toArray();
 
         // Calculate counts for all assignments
@@ -984,6 +1037,9 @@ class AssignmentController extends Controller
                   });
             });
         }
+
+        // Apply MUSIC CREATION restriction for users with role 'user'
+        $query->restrictMusicCreationForUsers($user);
 
         // Order by completion date (due date)
         $query->orderBy('completion_date', 'asc');

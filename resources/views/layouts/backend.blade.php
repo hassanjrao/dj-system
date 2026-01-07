@@ -182,7 +182,7 @@
                             </a>
                         </li>
                         @auth
-                            @if (auth()->user()->hasRole('super-admin'))
+                            @if (auth()->user()->can('manage-users'))
                                 <li class="nav-main-item">
                                     <a class="nav-main-link{{ request()->is('users') ? ' active' : '' }}"
                                         href="{{ route('users.index') }}">
@@ -191,6 +191,15 @@
                                     </a>
                                 </li>
                             @endif
+                            {{-- @if (auth()->user()->can('manage-clients'))
+                                <li class="nav-main-item">
+                                    <a class="nav-main-link{{ request()->is('clients*') ? ' active' : '' }}"
+                                        href="{{ url('/clients') }}">
+                                        <i class="nav-main-link-icon si si-user"></i>
+                                        <span class="nav-main-link-name">Clients</span>
+                                    </a>
+                                </li>
+                            @endif --}}
                             @php
                                 // if super admin, show all departments
                                 if (auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin')) {
@@ -202,6 +211,7 @@
                                 // Get "My Assignments" counts per department (filtered by assigned_to_id)
                                 $myAssignmentCounts = \App\Models\Assignment::query()
                                     ->where('assigned_to_id', auth()->id())
+                                    ->restrictMusicCreationForUsers(auth()->user())
                                     ->selectRaw('department_id, count(*) as count')
                                     ->groupBy('department_id')
                                     ->pluck('count', 'department_id');
@@ -209,16 +219,20 @@
                                 // Get total "My Assignments" count (All)
                                 $totalMyAssignmentsCount = \App\Models\Assignment::query()
                                     ->where('assigned_to_id', auth()->id())
+                                    ->restrictMusicCreationForUsers(auth()->user())
                                     ->count();
 
                                 // Get "All Assignments" counts per department (no filter)
                                 $allAssignmentCounts = \App\Models\Assignment::query()
+                                    ->restrictMusicCreationForUsers(auth()->user())
                                     ->selectRaw('department_id, count(*) as count')
                                     ->groupBy('department_id')
                                     ->pluck('count', 'department_id');
 
                                 // Get total "All Assignments" count (All)
-                                $totalAllAssignmentsCount = \App\Models\Assignment::query()->count();
+                                $totalAllAssignmentsCount = \App\Models\Assignment::query()
+                                    ->restrictMusicCreationForUsers(auth()->user())
+                                    ->count();
 
                                 // Check if any department is active (or "All" is active)
                                 $isAssignmentsActive = request()->is('assignments');

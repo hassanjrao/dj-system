@@ -223,14 +223,15 @@
 
           <!-- Link Child Assignments (Common for all departments) -->
           <v-divider
-            v-if="childDepartmentsWithData.length > 0"
+            v-if="childDepartmentsWithData.length > 0 && canCreateChildAssignments"
             style="border-width: 2px; opacity: 0.5"
           ></v-divider>
 
-          <v-subheader v-if="childDepartmentsWithData.length > 0"
+          <v-subheader
+            v-if="childDepartmentsWithData.length > 0 && canCreateChildAssignments"
             >PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader
           >
-          <v-row v-if="childDepartmentsWithData.length > 0">
+          <v-row v-if="childDepartmentsWithData.length > 0 && canCreateChildAssignments">
             <v-col cols="12">
               <v-card>
                 <v-card-text>
@@ -727,6 +728,20 @@ export default {
     },
     currentUser() {
       return this.$store.getters["auth/user"];
+    },
+    isUserRole() {
+      return this.$store.getters["auth/hasRole"]("user");
+    },
+    isMusicCreationDepartment() {
+      return this.formData.department_id === this.departmentIds.musicCreationId;
+    },
+    canCreateChildAssignments() {
+      // Users cannot create child assignments for MUSIC CREATION assignments
+      // Only super-admin and admin can create child assignments for MUSIC CREATION
+      if (this.isUserRole && this.isMusicCreationDepartment) {
+        return false;
+      }
+      return true;
     },
     selectedDepartmentName() {
       if (!this.formData.department_id || !this.departments.length) {
@@ -1431,9 +1446,12 @@ export default {
         }
 
         // Add note without metadata - backend will set created_by and timestamps
+        // Set canEdit and canDelete to true for newly created notes so they can be edited/deleted
         this.formData.notes.push({
           note: this.newNote.note.trim(),
           note_for: this.newNote.note_for,
+          canEdit: true,
+          canDelete: true,
         });
         // Reset new note fields
         this.newNote = {

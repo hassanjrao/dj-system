@@ -12,11 +12,11 @@ use Spatie\Permission\Models\Role;
 class UserController extends Controller
 {
     /**
-     * Display user management page (super-admin only)
+     * Display user management page (manage-users permission required)
      */
     public function index()
     {
-        if (!Auth::user()->hasRole('super-admin')) {
+        if (!Auth::user()->can('manage-users')) {
             abort(403, 'Unauthorized access');
         }
 
@@ -28,7 +28,7 @@ class UserController extends Controller
      */
     public function getUsers()
     {
-        if (!Auth::user()->hasRole('super-admin')) {
+        if (!Auth::user()->can('manage-users')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -60,7 +60,7 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        if (!Auth::user()->hasRole('super-admin')) {
+        if (!Auth::user()->can('manage-users')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -101,7 +101,7 @@ class UserController extends Controller
      */
     public function update(Request $request, $id)
     {
-        if (!Auth::user()->hasRole('super-admin')) {
+        if (!Auth::user()->can('manage-users')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -150,7 +150,7 @@ class UserController extends Controller
      */
     public function getRoles()
     {
-        if (!Auth::user()->hasRole('super-admin')) {
+        if (!Auth::user()->can('manage-users')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

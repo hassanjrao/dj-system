@@ -146,6 +146,36 @@ class Assignment extends Model
     }
 
     /**
+     * Scope to restrict MUSIC CREATION assignments for users with role 'user'
+     * Users cannot view MUSIC CREATION assignments not created by them that have status not equal to COMPLETED
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param \App\Models\User|null $user
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeRestrictMusicCreationForUsers($query, $user = null)
+    {
+        if (!$user || !$user->hasRole('user')) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($user) {
+            $q->whereHas('department', function ($deptQuery) {
+                $deptQuery->where('slug', '!=', 'music-creation');
+            })
+            ->orWhere(function ($musicQuery) use ($user) {
+                $musicQuery->whereHas('department', function ($deptQuery) {
+                    $deptQuery->where('slug', 'music-creation');
+                })
+                ->where(function ($subQuery) use ($user) {
+                    $subQuery->where('created_by', $user->id)
+                             ->orWhere('assignment_status', 'completed');
+                });
+            });
+        });
+    }
+
+    /**
      * Get formatted completion date
      * Returns: "Fri, Jan 28" format or null if no completion_date
      *

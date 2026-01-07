@@ -147,11 +147,13 @@ class LookupController extends Controller
     {
         $departments = Department::all();
 
-        if(auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin')) {
-            $departmentList = Department::whereIn('id', [1,2])->get();;
-        }
-        else{
-            $departmentList = auth()->user()->departments()->whereNotIn('id', [1,2])->get();
+        if (auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin')) {
+            $departmentList = Department::whereIn('id', [1,2])->get();
+            ;
+        } else {
+            $departmentList = auth()->user()->departments()->whereIn('departments.id', [1,2])
+            ->orderBy('departments.id')
+            ->get();
         }
 
         return response()->json([

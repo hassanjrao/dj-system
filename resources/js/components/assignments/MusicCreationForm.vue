@@ -58,8 +58,8 @@
           </template>
         </v-autocomplete>
 
-         <!-- Music Type -->
-         <v-autocomplete
+        <!-- Music Type -->
+        <v-autocomplete
           v-model="songData.music_type_id"
           :items="lookupData.music_types || []"
           item-text="name"
@@ -109,6 +109,7 @@
 
         <!-- Release Date -->
         <v-text-field
+          v-if="canSetReleaseDate"
           v-model="songData.release_date"
           label="Release Date & Time (PST) *"
           type="datetime-local"
@@ -249,6 +250,16 @@ export default {
       availableChildDepartments: [],
       loadingChildDepartments: false,
     };
+  },
+  computed: {
+    canSetReleaseDate() {
+      // Users cannot set release date for MUSIC CREATION assignments
+      // Only super-admin and admin can set release date
+      let can = !this.$store.getters["auth/hasRole"]("user");
+
+      console.log("can", can);
+      return can;
+    },
   },
   mounted() {
     this.loadAlbums();

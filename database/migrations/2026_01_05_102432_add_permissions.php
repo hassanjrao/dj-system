@@ -17,6 +17,7 @@ class AddPermissions extends Migration
     {
         $permissions = [
             'manage-users',
+            'manage-clients',
             'create-assignments',
             'edit-assignments',
             'edit-all-assignments',
@@ -32,6 +33,7 @@ class AddPermissions extends Migration
         $superAdminRole->givePermissionTo($permissions);
 
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        // Admin can do everything except manage-users and manage-clients
         $adminRole->givePermissionTo([
             'create-assignments',
             'edit-assignments',
@@ -46,7 +48,7 @@ class AddPermissions extends Migration
             'view-all-assignments',
         ]);
 
-        
+
     }
 
     /**
