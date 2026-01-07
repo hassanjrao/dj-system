@@ -115,7 +115,7 @@
                 small-chips
                 required
               >
-                <template v-slot:append-item>
+                <template v-slot:append-item v-if="!$store.getters['auth/hasPermission']">
                   <v-list-item @click="showClientDialog = true">
                     <v-list-item-content>
                       <v-list-item-title>+ Create New Client</v-list-item-title>
