@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class Assignment extends Model
 {
@@ -142,5 +143,47 @@ class Assignment extends Model
         $paddedSeq = str_pad($this->department_sequence_number, 5, '0', STR_PAD_LEFT);
 
         return $initials . $paddedSeq;
+    }
+
+    /**
+     * Get formatted completion date
+     * Returns: "Fri, Jan 28" format or null if no completion_date
+     *
+     * @return string|null
+     */
+    public function getFormattedCompletionDate()
+    {
+        if (!$this->completion_date) {
+            return null;
+        }
+
+        return $this->completion_date->format('D, M j');
+    }
+
+    /**
+     * Get completion date days remaining/overdue as formatted string
+     * Returns: "X days overdue", "Due today", "1 day to go", or "X days to go"
+     *
+     * @param Carbon|null $referenceDate Optional reference date (defaults to today)
+     * @return string|null
+     */
+    public function getCompletionDateDays($referenceDate = null)
+    {
+        if (!$this->completion_date) {
+            return null;
+        }
+
+        $today = $referenceDate ?: Carbon::today();
+        $daysRemaining = $today->diffInDays($this->completion_date, false);
+
+        if ($daysRemaining < 0) {
+            return abs($daysRemaining) . ' days overdue';
+        } elseif ($daysRemaining == 0) {
+            return 'Due today';
+        } elseif ($daysRemaining == 1) {
+            return '1 day to go';
+        } else {
+            return $daysRemaining . ' days to go';
+        }
     }
 }

@@ -209,26 +209,90 @@
 
           <!-- Link Child Assignments (Common for all departments) -->
           <v-divider
-            v-if="availableChildDepartments.length > 0"
+            v-if="childDepartmentsWithData.length > 0"
             style="border-width: 2px; opacity: 0.5"
           ></v-divider>
-          
-          <v-subheader v-if="availableChildDepartments.length > 0"
+
+          <v-subheader v-if="childDepartmentsWithData.length > 0"
             >PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader
           >
-          <v-row v-if="availableChildDepartments.length > 0">
+          <v-row v-if="childDepartmentsWithData.length > 0">
             <v-col cols="12">
-              <v-autocomplete
-                v-model="formData.child_departments"
-                :items="availableChildDepartments"
-                item-text="name"
-                item-value="id"
-                label="Select departments for child assignments"
-                multiple
-                chips
-                small-chips
-                :loading="loadingChildDepartments"
-              ></v-autocomplete>
+              <v-card>
+                <v-card-text>
+                  <v-row class="mb-2">
+                    <v-col :cols="isEdit ? 3 : 12" class="font-weight-bold">
+                      Department
+                    </v-col>
+                    <v-col v-if="isEdit" cols="3" class="font-weight-bold">
+                      Status
+                    </v-col>
+                    <v-col v-if="isEdit" cols="3" class="font-weight-bold">
+                      Due Date
+                    </v-col>
+                    <v-col v-if="isEdit" cols="3" class="font-weight-bold">
+                      Assigned To
+                    </v-col>
+                  </v-row>
+                  <v-divider class="mb-2"></v-divider>
+                  <v-row
+                    v-for="dept in childDepartmentsWithData"
+                    :key="dept.id"
+                    class="mb-1 align-center"
+                    style="min-height: 48px"
+                  >
+                    <v-col :cols="isEdit ? 3 : 12" class="d-flex align-center">
+                      <v-checkbox
+                        :value="dept.id"
+                        v-model="formData.child_departments"
+                        :label="dept.name"
+                        hide-details
+                        dense
+                      ></v-checkbox>
+                    </v-col>
+                    <v-col v-if="isEdit" cols="3" class="d-flex align-center">
+                      <v-chip
+                        v-if="dept.hasChildAssignment && dept.status"
+                        :color="getStatusColor(dept.status)"
+                        small
+                        text-color="white"
+                      >
+                        {{ dept.status }}
+                      </v-chip>
+                      <span v-else-if="dept.hasChildAssignment" class="text-body-2">
+                        N/A
+                      </span>
+                      <span v-else class="text-body-2 grey--text">-</span>
+                    </v-col>
+                    <v-col v-if="isEdit" cols="3" class="d-flex align-center">
+                      <div v-if="dept.dueDateDays">
+                        <div
+                          v-if="dept.dueDateDays.date"
+                          class="font-weight-medium text-body-2"
+                        >
+                          {{ dept.dueDateDays.date }}
+                        </div>
+                        <v-chip
+                          v-if="dept.dueDateDays.text"
+                          :color="dept.dueDateDays.color"
+                          small
+                          text-color="white"
+                          class="mt-1"
+                        >
+                          {{ dept.dueDateDays.text }}
+                        </v-chip>
+                      </div>
+                      <span v-else class="text-body-2 grey--text">-</span>
+                    </v-col>
+                    <v-col v-if="isEdit" cols="3" class="d-flex align-center">
+                      <span v-if="dept.hasChildAssignment" class="text-body-2">
+                        {{ dept.assignedTo || "Unassigned" }}
+                      </span>
+                      <span v-else class="text-body-2 grey--text">-</span>
+                    </v-col>
+                  </v-row>
+                </v-card-text>
+              </v-card>
             </v-col>
           </v-row>
           <!-- Common fields -->
@@ -323,6 +387,7 @@
                   <v-list-item-action @click.stop>
                     <div v-if="editingNoteIndex !== index" class="d-flex flex-column">
                       <v-btn
+                        v-if="note.canEdit"
                         icon
                         small
                         color="primary"
@@ -332,6 +397,7 @@
                         <v-icon small>mdi-pencil</v-icon>
                       </v-btn>
                       <v-btn
+                        v-if="note.canDelete"
                         icon
                         small
                         color="error"
@@ -505,6 +571,7 @@
                   <v-list-item-action @click.stop>
                     <div v-if="editingNoteIndex !== index" class="d-flex flex-column">
                       <v-btn
+                        v-if="note.canEdit"
                         icon
                         small
                         color="primary"
@@ -514,6 +581,7 @@
                         <v-icon small>mdi-pencil</v-icon>
                       </v-btn>
                       <v-btn
+                        v-if="note.canDelete"
                         icon
                         small
                         color="error"
@@ -671,6 +739,94 @@ export default {
       // Return prop if available, otherwise return loaded data
       return this.assignmentData || this.loadedAssignmentData;
     },
+    // Merge available child departments with child assignments data for edit mode
+    childDepartmentsWithData() {
+      if (
+        !this.availableChildDepartments ||
+        this.availableChildDepartments.length === 0
+      ) {
+        return [];
+      }
+
+      const assignmentData = this.currentAssignmentData;
+      const childAssignments = assignmentData?.childAssignments || [];
+
+      // Create a map of department_id to child assignment for quick lookup
+      const childAssignmentMap = {};
+      childAssignments.forEach((child) => {
+        if (child.department_id) {
+          childAssignmentMap[child.department_id] = child;
+        }
+      });
+
+      // Merge available departments with child assignment data
+      return this.availableChildDepartments.map((dept) => {
+        const childAssignment = childAssignmentMap[dept.id];
+        let status = null;
+        let assignedTo = null;
+        let dueDateDays = null;
+
+        if (childAssignment) {
+          // Get status - could be from status relationship or assignment_status field
+          if (childAssignment.status && childAssignment.status.name) {
+            status = childAssignment.status.name;
+          } else if (childAssignment.assignment_status) {
+            status = childAssignment.assignment_status;
+          }
+
+          // Get assigned user name
+          if (childAssignment.assignedTo && childAssignment.assignedTo.name) {
+            assignedTo = childAssignment.assignedTo.name;
+          } else if (childAssignment.assigned_to && childAssignment.assigned_to.name) {
+            assignedTo = childAssignment.assigned_to.name;
+          } else {
+            assignedTo = "Unassigned";
+          }
+
+          // Use backend-calculated completion_date and completion_date_days
+          if (childAssignment.completion_date || childAssignment.completion_date_days) {
+            const daysText = childAssignment.completion_date_days;
+            let color = "success"; // Default color
+
+            // Determine color based on text content (same logic as AssignmentList.vue)
+            if (daysText && daysText.includes("overdue")) {
+              color = "error";
+            } else if (
+              daysText &&
+              (daysText.includes("today") || daysText.includes("Today"))
+            ) {
+              color = "warning";
+            } else if (daysText) {
+              // Extract number from text like "3 days to go" or "1 day to go"
+              const match = daysText.match(/(\d+)\s+day/);
+              if (match) {
+                const days = parseInt(match[1]);
+                if (days <= 3) {
+                  color = "info";
+                } else {
+                  color = "success";
+                }
+              }
+            }
+
+            dueDateDays = {
+              date: childAssignment.completion_date || null,
+              text: daysText || null,
+              color: color,
+            };
+          }
+        }
+
+        return {
+          ...dept,
+          hasChildAssignment: !!childAssignment,
+          childAssignment: childAssignment || null,
+          status: status,
+          assignedTo: assignedTo,
+          dueDateDays: dueDateDays,
+        };
+      });
+    },
   },
   data() {
     return {
@@ -680,7 +836,10 @@ export default {
       loading: false,
       loadingUsers: false,
       loadingInitialData: false,
-      formData: { ...this.modelValue },
+      formData: {
+        ...this.modelValue,
+        child_departments: this.modelValue.child_departments || [],
+      },
       selectedClient: null,
       filteredUsers: [],
       departments: [],
@@ -737,14 +896,14 @@ export default {
           // Use assignmentData from prop or loaded data
           this.formData = { ...this.formData, ...assignmentData };
 
-          // Set child_departments if childAssignments exists
+          // Set child_departments if childAssignments exists - ensure it's always an array
           if (
             assignmentData.childAssignments &&
             Array.isArray(assignmentData.childAssignments)
           ) {
-            this.formData.child_departments = assignmentData.childAssignments.map(
-              (child) => child.department_id
-            );
+            this.formData.child_departments = assignmentData.childAssignments
+              .map((child) => child.department_id)
+              .filter((id) => id != null); // Filter out any null/undefined values
           } else {
             this.formData.child_departments = [];
           }
@@ -947,14 +1106,14 @@ export default {
         // Merge to preserve any existing formData properties
         this.formData = { ...this.formData, ...assignmentData };
 
-        // Set child_departments if childAssignments exists
+        // Set child_departments if childAssignments exists - ensure it's always an array
         if (
           assignmentData.childAssignments &&
           Array.isArray(assignmentData.childAssignments)
         ) {
-          this.formData.child_departments = assignmentData.childAssignments.map(
-            (child) => child.department_id
-          );
+          this.formData.child_departments = assignmentData.childAssignments
+            .map((child) => child.department_id)
+            .filter((id) => id != null); // Filter out any null/undefined values
         } else {
           this.formData.child_departments = [];
         }
@@ -1027,6 +1186,14 @@ export default {
         submitData.notes = submitData.notes.filter(
           (note) => note.note && note.note.trim()
         );
+
+        // Ensure child_departments is always an array
+        if (
+          !submitData.child_departments ||
+          !Array.isArray(submitData.child_departments)
+        ) {
+          submitData.child_departments = [];
+        }
 
         // Check if we're in a child step (currentStep >= 3)
         if (this.currentStep >= 3) {
@@ -1118,6 +1285,23 @@ export default {
       } else {
         console.log("validation failed");
         this.showValidationErrors();
+      }
+    },
+    getStatusColor(status) {
+      if (!status) return "grey";
+
+      const statusLower = status.toLowerCase();
+      switch (statusLower) {
+        case "pending":
+          return "orange";
+        case "in-progress":
+          return "blue";
+        case "completed":
+          return "green";
+        case "on-hold":
+          return "red";
+        default:
+          return "grey";
       }
     },
     showValidationErrors() {

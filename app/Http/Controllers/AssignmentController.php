@@ -71,7 +71,7 @@ class AssignmentController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'notes.updatedBy', 'status', 'parentAssignment.song.artists', 'childAssignments'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'notes.updatedBy', 'status', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.status', 'childAssignments.department'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
@@ -85,7 +85,13 @@ class AssignmentController extends Controller
         }
 
         // Convert notes to array format for frontend
-        $formattedNotes = $assignment->notes->map(function ($note) {
+        $user = Auth::user();
+        $formattedNotes = $assignment->notes->map(function ($note) use ($user) {
+            // Check permissions: can edit if user has permission OR is the creator
+            $canEdit = $user->can('edit-notes') || $note->created_by == $user->id;
+            // Check permissions: can delete if user has permission OR is the creator
+            $canDelete = $user->can('delete-notes') || $note->created_by == $user->id;
+
             return [
                 'id' => $note->id,
                 'note' => $note->note,
@@ -94,6 +100,8 @@ class AssignmentController extends Controller
                 'created_at' => $note->created_at ? $note->created_at->format('M j, Y, g:i A') : null,
                 'updated_by' => $note->updatedBy->name ?? null,
                 'updated_at' => $note->updated_at ? $note->updated_at->format('M j, Y, g:i A') : null,
+                'canEdit' => $canEdit,
+                'canDelete' => $canDelete,
             ];
         })->toArray();
 
@@ -101,8 +109,17 @@ class AssignmentController extends Controller
         unset($assignment->notes);
         $assignment->notes = $formattedNotes;
 
-        // Ensure childAssignments is always an array (even if empty)
-        $assignment->childAssignments = $assignment->childAssignments ? $assignment->childAssignments->toArray() : [];
+        // Format childAssignments with completion_date and completion_date_days
+        $formattedChildAssignments = [];
+        if ($assignment->childAssignments && $assignment->childAssignments->count() > 0) {
+            $formattedChildAssignments = $assignment->childAssignments->map(function ($childAssignment) {
+                $childArray = $childAssignment->toArray();
+                $childArray['completion_date'] = $childAssignment->getFormattedCompletionDate();
+                $childArray['completion_date_days'] = $childAssignment->getCompletionDateDays();
+                return $childArray;
+            })->toArray();
+        }
+        $assignment->childAssignments = $formattedChildAssignments;
 
         $departments = Department::all();
         $clients = \App\Models\Client::orderBy('name')->get();
@@ -450,7 +467,13 @@ class AssignmentController extends Controller
             'notes.updatedBy'
         ])->findOrFail($id);
 
-        $formattedNotes = $assignment->notes->map(function ($note) {
+        $user = Auth::user();
+        $formattedNotes = $assignment->notes->map(function ($note) use ($user) {
+            // Check permissions: can edit if user has permission OR is the creator
+            $canEdit = $user->can('edit-notes') || $note->created_by == $user->id;
+            // Check permissions: can delete if user has permission OR is the creator
+            $canDelete = $user->can('delete-notes') || $note->created_by == $user->id;
+
             return [
                 'id' => $note->id,
                 'note' => $note->note,
@@ -459,6 +482,8 @@ class AssignmentController extends Controller
                 'created_at' => $note->created_at ? $note->created_at->format('M j, Y, g:i A') : null,
                 'updated_by' => $note->updatedBy->name ?? null,
                 'updated_at' => $note->updated_at ? $note->updated_at->format('M j, Y, g:i A') : null,
+                'canEdit' => $canEdit,
+                'canDelete' => $canDelete,
             ];
         })->toArray();
 
@@ -962,25 +987,9 @@ class AssignmentController extends Controller
 
         // Return only needed fields for frontend
         $assignments = $assignments->map(function ($assignment) use ($today) {
-            // Format completion date
-            $completionDateFormatted = null;
-            $completionDateDays = null;
-            if ($assignment->completion_date) {
-                // Format: "Fri, Jan 28"
-                $completionDateFormatted = $assignment->completion_date->format('D, M j');
-
-                // Calculate days remaining or overdue
-                $daysRemaining = $today->diffInDays($assignment->completion_date, false);
-                if ($daysRemaining < 0) {
-                    $completionDateDays = abs($daysRemaining) . ' days overdue';
-                } elseif ($daysRemaining == 0) {
-                    $completionDateDays = 'Due today';
-                } elseif ($daysRemaining == 1) {
-                    $completionDateDays = '1 day to go';
-                } else {
-                    $completionDateDays = $daysRemaining . ' days to go';
-                }
-            }
+            // Get formatted completion date and days using model methods
+            $completionDateFormatted = $assignment->getFormattedCompletionDate();
+            $completionDateDays = $assignment->getCompletionDateDays($today);
 
             // Format release date
             $releaseDateFormatted = null;
