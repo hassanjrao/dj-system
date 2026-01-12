@@ -113,4 +113,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('lookup/departments', 'App\Http\Controllers\LookupController@departments');
     Route::get('lookup/deliverables', 'App\Http\Controllers\LookupController@deliverables');
     Route::get('lookup/child-departments', 'App\Http\Controllers\LookupController@childDepartments');
+
+    // Note routes
+    Route::prefix('notes')->name('notes.')->group(function () {
+        Route::get('/', 'App\Http\Controllers\NoteController@index');
+        Route::post('/', 'App\Http\Controllers\NoteController@store');
+        Route::put('/{id}', 'App\Http\Controllers\NoteController@update');
+        Route::delete('/{id}', 'App\Http\Controllers\NoteController@destroy');
+    });
 });

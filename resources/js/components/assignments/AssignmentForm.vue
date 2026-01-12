@@ -313,15 +313,19 @@
           <!-- Common fields -->
 
           <v-divider style="border-width: 2px; opacity: 0.5"></v-divider>
-          <!-- Notes Section -->
-          <v-row>
+          <!-- Notes Section (only shown in Step 2 and beyond, after assignment is created) -->
+          <v-row v-if="currentStep >= 2 && assignmentId">
             <v-col cols="12">
               <v-subheader>Notes</v-subheader>
             </v-col>
           </v-row>
-          <v-row>
+          <v-row v-if="currentStep >= 2 && assignmentId">
             <v-col cols="12" md="8">
-              <v-text-field v-model="newNote.note" label="Note"></v-text-field>
+              <v-text-field
+                v-model="newNote.note"
+                label="Note"
+                :disabled="loadingNotes"
+              ></v-text-field>
             </v-col>
             <v-col cols="12" md="3">
               <v-autocomplete
@@ -332,6 +336,7 @@
                 label="Note For"
                 chips
                 small-chips
+                :disabled="loadingNotes"
               ></v-autocomplete>
             </v-col>
             <v-col cols="12" md="1" class="d-flex align-center">
@@ -339,7 +344,8 @@
                 icon
                 color="primary"
                 @click="addNote"
-                :disabled="!newNote.note || !newNote.note_for"
+                :disabled="!newNote.note || !newNote.note_for || loadingNotes"
+                :loading="loadingNotes"
               >
                 <v-icon>mdi-plus</v-icon>
               </v-btn>
@@ -347,7 +353,14 @@
           </v-row>
 
           <!-- Display Added Notes -->
-          <v-row v-if="formData.notes && formData.notes.length > 0">
+          <v-row
+            v-if="
+              currentStep >= 2 &&
+              assignmentId &&
+              formData.notes &&
+              formData.notes.length > 0
+            "
+          >
             <v-col cols="12">
               <v-list>
                 <v-list-item
@@ -503,15 +516,19 @@
           <!-- Common fields -->
           <v-divider class="my-4"></v-divider>
 
-          <!-- Notes Section -->
-          <v-row>
+          <!-- Notes Section (for child assignments) -->
+          <v-row v-if="currentStep >= 3 && formData.id">
             <v-col cols="12">
               <v-subheader>Notes</v-subheader>
             </v-col>
           </v-row>
-          <v-row>
+          <v-row v-if="currentStep >= 3 && formData.id">
             <v-col cols="12" md="8">
-              <v-text-field v-model="newNote.note" label="Note"></v-text-field>
+              <v-text-field
+                v-model="newNote.note"
+                label="Note"
+                :disabled="loadingNotes"
+              ></v-text-field>
             </v-col>
             <v-col cols="12" md="3">
               <v-autocomplete
@@ -522,6 +539,7 @@
                 label="Note For"
                 chips
                 small-chips
+                :disabled="loadingNotes"
               ></v-autocomplete>
             </v-col>
             <v-col cols="12" md="1" class="d-flex align-center">
@@ -529,7 +547,8 @@
                 icon
                 color="primary"
                 @click="addNote"
-                :disabled="!newNote.note || !newNote.note_for"
+                :disabled="!newNote.note || !newNote.note_for || loadingNotes"
+                :loading="loadingNotes"
               >
                 <v-icon>mdi-plus</v-icon>
               </v-btn>
@@ -537,7 +556,14 @@
           </v-row>
 
           <!-- Display Added Notes -->
-          <v-row v-if="formData.notes && formData.notes.length > 0">
+          <v-row
+            v-if="
+              currentStep >= 3 &&
+              formData.id &&
+              formData.notes &&
+              formData.notes.length > 0
+            "
+          >
             <v-col cols="12">
               <v-list>
                 <v-list-item
@@ -911,6 +937,8 @@ export default {
       departmentIds: {},
       loadedAssignmentData: null, // For storing assignment data loaded from API
       validationErrors: [], // For displaying validation errors in alert
+      assignmentId: null, // Store assignment ID after creation in Step 1
+      loadingNotes: false, // Loading state for notes operations
     };
   },
   async mounted() {
@@ -924,6 +952,8 @@ export default {
         if (assignmentData) {
           // Use assignmentData from prop or loaded data
           this.formData = { ...this.formData, ...assignmentData };
+          // Set assignment ID for edit mode
+          this.assignmentId = assignmentData.id;
 
           // Set child_departments if childAssignments exists - ensure it's always an array
           if (
@@ -965,8 +995,9 @@ export default {
       this.loadUsersForDepartment();
       this.loadAvailableSongs();
 
-      // If editing, load child departments for the selected department
+      // If editing, load notes and child departments
       if (this.isEdit && this.formData.department_id) {
+        this.loadNotes();
         this.loadChildDepartments();
       }
     } catch (error) {
@@ -1134,6 +1165,8 @@ export default {
         // Populate form data with assignment data
         // Merge to preserve any existing formData properties
         this.formData = { ...this.formData, ...assignmentData };
+        // Set assignment ID
+        this.assignmentId = assignmentData.id;
 
         // Set child_departments if childAssignments exists - ensure it's always an array
         if (
@@ -1165,6 +1198,10 @@ export default {
         }
 
         this.loadedAssignmentData = assignmentData;
+
+        // Load notes separately via NoteController
+        await this.loadNotes();
+
         this.$emit("update:modelValue", this.formData);
       } catch (error) {
         console.error("Error loading assignment data:", error);
@@ -1179,11 +1216,16 @@ export default {
           const childData = response.data.assignment;
           // Populate form data with child assignment data
           this.formData = { ...childData };
+          // Set assignment ID for notes
+          this.assignmentId = childData.id;
 
           // Update parent assignment data from child's parent relationship
           if (childData.parent_assignment) {
             this.parentAssignmentData = childData.parent_assignment;
           }
+
+          // Load notes for this child assignment
+          this.loadNotes();
 
           this.childFormLoading = false;
         })
@@ -1203,18 +1245,11 @@ export default {
       if (isValid) {
         this.loading = true;
 
-        // Prepare form data with notes array
+        // Prepare form data (notes are handled separately via NoteController)
         const submitData = { ...this.formData };
 
-        // Ensure notes array exists and is properly formatted
-        if (!submitData.notes || !Array.isArray(submitData.notes)) {
-          submitData.notes = [];
-        }
-
-        // Filter out empty notes
-        submitData.notes = submitData.notes.filter(
-          (note) => note.note && note.note.trim()
-        );
+        // Remove notes from submission data - they are handled separately
+        delete submitData.notes;
 
         // Ensure child_departments is always an array
         if (
@@ -1264,11 +1299,20 @@ export default {
               alert(errorMessage);
             });
         } else {
-          // Create or update parent assignment (Step 2)
-          const url = this.isEdit ? `/assignments/${this.formData.id}` : "/assignments";
-          const method = this.isEdit ? "put" : "post";
+          // Update parent assignment (Step 2)
+          // Assignment was created in Step 1, so we always use PUT here
+          const assignmentId = this.assignmentId || this.formData.id;
+          if (!assignmentId) {
+            alert("Assignment ID is missing. Please go back to Step 1 and try again.");
+            this.loading = false;
+            return;
+          }
 
-          axios[method](url, submitData)
+          // Remove id from submitData since it's in the URL
+          delete submitData.id;
+
+          axios
+            .put(`/assignments/${assignmentId}`, submitData)
             .then((response) => {
               this.loading = false;
 
@@ -1394,12 +1438,52 @@ export default {
     cancel() {
       window.location.href = "/assignments";
     },
-    goToNextStep() {
+    async goToNextStep() {
       // Validate step 1 form - this will highlight invalid fields
       if (this.$refs.step1Form && this.$refs.step1Form.validate()) {
-        this.currentStep = 2;
-        // Load users for the selected department when moving to step 2
-        this.loadUsersForDepartment();
+        // If not in edit mode, create assignment in Step 1
+        if (!this.isEdit && !this.assignmentId) {
+          this.loading = true;
+          try {
+            const response = await axios.post("/assignments", {
+              step: "1",
+              client_id: this.formData.client_id,
+              department_id: this.formData.department_id,
+            });
+
+            // Store assignment ID for Step 2
+            this.assignmentId = response.data.id;
+            this.formData.id = response.data.id;
+
+            // Proceed to Step 2
+            this.currentStep = 2;
+            // Load users for the selected department when moving to step 2
+            this.loadUsersForDepartment();
+            // Load notes for this assignment
+            this.loadNotes();
+          } catch (error) {
+            console.error("Error creating assignment:", error);
+            let errorMessage = "Error creating assignment. Please try again.";
+            if (error.response && error.response.data && error.response.data.message) {
+              errorMessage = error.response.data.message;
+            } else if (
+              error.response &&
+              error.response.data &&
+              error.response.data.errors
+            ) {
+              const errors = Object.values(error.response.data.errors).flat();
+              errorMessage = errors.join("\n");
+            }
+            alert(errorMessage);
+          } finally {
+            this.loading = false;
+          }
+        } else {
+          // Edit mode or assignment already created, just proceed to Step 2
+          this.currentStep = 2;
+          // Load users for the selected department when moving to step 2
+          this.loadUsersForDepartment();
+        }
       } else {
         // Validation failed - show errors
         this.showValidationErrors();
@@ -1439,26 +1523,73 @@ export default {
         this.formData.notes = [];
       }
     },
-    addNote() {
-      if (this.newNote.note && this.newNote.note.trim() && this.newNote.note_for) {
-        if (!this.formData.notes) {
-          this.formData.notes = [];
-        }
+    async loadNotes() {
+      // Get assignment ID - use assignmentId for Step 2, or formData.id for Step 3+
+      const assignmentId = this.assignmentId || this.formData.id;
+      if (!assignmentId) {
+        return;
+      }
 
-        // Add note without metadata - backend will set created_by and timestamps
-        // Set canEdit and canDelete to true for newly created notes so they can be edited/deleted
-        this.formData.notes.push({
-          note: this.newNote.note.trim(),
-          note_for: this.newNote.note_for,
-          canEdit: true,
-          canDelete: true,
+      this.loadingNotes = true;
+      try {
+        const response = await axios.get("/notes", {
+          params: {
+            assignment_id: assignmentId,
+          },
         });
-        // Reset new note fields
-        this.newNote = {
-          note: "",
-          note_for: null,
-        };
-        this.updateModel();
+        this.formData.notes = response.data;
+      } catch (error) {
+        console.error("Error loading notes:", error);
+        this.formData.notes = [];
+      } finally {
+        this.loadingNotes = false;
+      }
+    },
+    async addNote() {
+      // Get assignment ID - use assignmentId for Step 2, or formData.id for Step 3+
+      const assignmentId = this.assignmentId || this.formData.id;
+      if (!assignmentId) {
+        alert("Assignment must be created first. Please complete Step 1.");
+        return;
+      }
+
+      if (this.newNote.note && this.newNote.note.trim() && this.newNote.note_for) {
+        this.loadingNotes = true;
+        try {
+          const response = await axios.post("/notes", {
+            assignment_id: assignmentId,
+            note: this.newNote.note.trim(),
+            note_for: this.newNote.note_for,
+          });
+
+          // Add note to local array
+          if (!this.formData.notes) {
+            this.formData.notes = [];
+          }
+          this.formData.notes.push(response.data);
+
+          // Reset new note fields
+          this.newNote = {
+            note: "",
+            note_for: null,
+          };
+        } catch (error) {
+          console.error("Error creating note:", error);
+          let errorMessage = "Error creating note. Please try again.";
+          if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+          } else if (
+            error.response &&
+            error.response.data &&
+            error.response.data.errors
+          ) {
+            const errors = Object.values(error.response.data.errors).flat();
+            errorMessage = errors.join("\n");
+          }
+          alert(errorMessage);
+        } finally {
+          this.loadingNotes = false;
+        }
       }
     },
 
@@ -1470,21 +1601,46 @@ export default {
       };
     },
 
-    saveEditNote(index) {
+    async saveEditNote(index) {
       if (
         this.editingNote.note &&
         this.editingNote.note.trim() &&
         this.editingNote.note_for
       ) {
-        // Update note preserving ID so backend knows to update, not create
-        // Backend will set updated_by and updated_at
-        this.formData.notes[index] = {
-          ...this.formData.notes[index],
-          note: this.editingNote.note.trim(),
-          note_for: this.editingNote.note_for,
-        };
-        this.cancelEditNote();
-        this.updateModel();
+        const note = this.formData.notes[index];
+        if (!note.id) {
+          alert("Cannot update note: Note ID is missing.");
+          this.cancelEditNote();
+          return;
+        }
+
+        this.loadingNotes = true;
+        try {
+          const response = await axios.put(`/notes/${note.id}`, {
+            note: this.editingNote.note.trim(),
+            note_for: this.editingNote.note_for,
+          });
+
+          // Update note in local array
+          this.formData.notes[index] = response.data;
+          this.cancelEditNote();
+        } catch (error) {
+          console.error("Error updating note:", error);
+          let errorMessage = "Error updating note. Please try again.";
+          if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+          } else if (
+            error.response &&
+            error.response.data &&
+            error.response.data.errors
+          ) {
+            const errors = Object.values(error.response.data.errors).flat();
+            errorMessage = errors.join("\n");
+          }
+          alert(errorMessage);
+        } finally {
+          this.loadingNotes = false;
+        }
       }
     },
 
@@ -1501,18 +1657,37 @@ export default {
       this.showDeleteNoteDialog = true;
     },
 
-    deleteNote() {
+    async deleteNote() {
       if (
         this.noteToDelete !== null &&
         this.formData.notes &&
         this.formData.notes.length > this.noteToDelete
       ) {
-        this.formData.notes.splice(this.noteToDelete, 1);
-        this.showDeleteNoteDialog = false;
-        this.noteToDelete = null;
-        this.$nextTick(() => {
-          this.updateModel();
-        });
+        const note = this.formData.notes[this.noteToDelete];
+        if (!note.id) {
+          alert("Cannot delete note: Note ID is missing.");
+          this.showDeleteNoteDialog = false;
+          this.noteToDelete = null;
+          return;
+        }
+
+        this.loadingNotes = true;
+        try {
+          await axios.delete(`/notes/${note.id}`);
+          // Remove note from local array
+          this.formData.notes.splice(this.noteToDelete, 1);
+          this.showDeleteNoteDialog = false;
+          this.noteToDelete = null;
+        } catch (error) {
+          console.error("Error deleting note:", error);
+          let errorMessage = "Error deleting note. Please try again.";
+          if (error.response && error.response.data && error.response.data.message) {
+            errorMessage = error.response.data.message;
+          }
+          alert(errorMessage);
+        } finally {
+          this.loadingNotes = false;
+        }
       }
     },
 

@@ -10,7 +10,6 @@ use App\Models\Deliverable;
 use App\Models\Artist;
 use App\Models\Song;
 use App\Models\AssignmentRelationship;
-use App\Models\Note;
 use App\Models\AssignmentStatus;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -71,7 +70,7 @@ class AssignmentController extends Controller
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'notes.creator', 'notes.updatedBy', 'status', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.status', 'childAssignments.department', 'createdBy'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'status', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.status', 'childAssignments.department', 'createdBy'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
@@ -84,30 +83,8 @@ class AssignmentController extends Controller
             $assignment->song_artists = [];
         }
 
-        // Convert notes to array format for frontend
-        $user = Auth::user();
-        $formattedNotes = $assignment->notes->map(function ($note) use ($user) {
-            // Check permissions: can edit if user has permission OR is the creator
-            $canEdit = $user->can('edit-notes') || $note->created_by == $user->id;
-            // Check permissions: can delete if user has permission OR is the creator
-            $canDelete = $user->can('delete-notes') || $note->created_by == $user->id;
-
-            return [
-                'id' => $note->id,
-                'note' => $note->note,
-                'note_for' => $note->note_for,
-                'created_by' => $note->creator->name ?? null,
-                'created_at' => $note->created_at ? $note->created_at->format('M j, Y, g:i A') : null,
-                'updated_by' => $note->updatedBy->name ?? null,
-                'updated_at' => $note->updated_at ? $note->updated_at->format('M j, Y, g:i A') : null,
-                'canEdit' => $canEdit,
-                'canDelete' => $canDelete,
-            ];
-        })->toArray();
-
-        // Unset the original relationship and set the formatted array
-        unset($assignment->notes);
-        $assignment->notes = $formattedNotes;
+        // Notes will be fetched separately via NoteController
+        $assignment->notes = [];
 
         // Format childAssignments with completion_date and completion_date_days
         $formattedChildAssignments = [];
@@ -156,115 +133,29 @@ class AssignmentController extends Controller
 
     public function store(Request $request)
     {
+        // For Step 1: Create assignment with minimal data (client_id, department_id, created_by)
+        // This allows assignment to be created when user selects client and department
         $validated = $request->validate([
             'client_id' => 'nullable|exists:clients,id',
             'department_id' => 'required|exists:departments,id',
-            'assigned_to_id' => 'nullable|exists:users,id',
-            'assignment_name' => 'nullable|string|max:255',
-            'completion_date' => 'nullable|date',
-            'assignment_status' => 'nullable|exists:assignment_statuses,code',
-            'parent_assignment_id' => 'nullable|exists:assignments,id',
-            'notes' => 'nullable|array',
-            'notes.*.id' => 'nullable|exists:notes,id',
-            'notes.*.note' => 'required|string',
-            'notes.*.note_for' => 'required|in:me,team,admin',
-            'child_departments' => 'nullable|array',
         ]);
 
-        // Set default assignment_status if not provided
-        if (!isset($validated['assignment_status'])) {
-            $defaultStatus = AssignmentStatus::where('code', 'pending')->first();
-            if ($defaultStatus) {
-                $validated['assignment_status'] = $defaultStatus->code;
-            }
-        }
-
-        $completedDate = $validated['completion_date'] ?? null;
-        if (!$completedDate && $request->has('song_completion_date')) {
-            $completedDate = $request->song_completion_date;
-        }
+        // Set default assignment_status
+        $defaultStatus = AssignmentStatus::where('code', 'pending')->first();
+        $statusCode = $defaultStatus ? $defaultStatus->code : 'pending';
 
         $assignment = Assignment::create([
-            'client_id' => $validated['client_id'],
+            'client_id' => $validated['client_id'] ?? null,
             'department_id' => $validated['department_id'],
-            'assigned_to_id' => $validated['assigned_to_id'],
-            'assignment_name' => $validated['assignment_name'] ?? null,
-            'completion_date' => $completedDate,
-            'assignment_status' => $validated['assignment_status'],
+            'assignment_status' => $statusCode,
             'created_by' => Auth::id(),
         ]);
 
-
-        // Handle notes
-        if ($request->has('notes') && is_array($request->notes)) {
-            $this->handleNotes($request->notes, $assignment);
-        }
-
-        // Department-specific validation and processing
-        $department = Department::findOrFail($request->department_id);
-
-        // Check if user role is 'user' and department is 'music-creation'
-        // Users cannot set release_date or create child assignments for MUSIC CREATION
-        $user = Auth::user();
-        $isUserRole = $user->hasRole('user');
-        $isMusicCreation = $department->slug === 'music-creation';
-
-        if ($isUserRole && $isMusicCreation) {
-            // Prevent setting release_date for users
-            if ($request->has('song_release_date') && $request->song_release_date) {
-                return response()->json([
-                    'error' => 'Users cannot set release date for MUSIC CREATION assignments. Release date is required to create child assignments.'
-                ], 422);
-            }
-
-            // Prevent creating child assignments for users
-            if ($request->has('child_departments') && is_array($request->child_departments) && count($request->child_departments) > 0) {
-                return response()->json([
-                    'error' => 'Users cannot create child assignments for MUSIC CREATION assignments. Release date must be set to create child assignments.'
-                ], 422);
-            }
-        }
-
-        // Department-specific validation
-        if ($department->slug === 'music-creation') {
-            $assignment = $this->processMusicCreationData($request, $validated, $assignment, $isUserRole);
-        } elseif ($department->slug === 'music-mastering') {
-            $assignment = $this->processMusicMasteringData($request, $validated, $assignment);
-        }
-
-        // $validated = $this->processDepartmentSpecificData($request, $department, $validated);
-
-
-        // Handle deliverables
-        if ($request->has('deliverables') && is_array($request->deliverables)) {
-            $this->handleDeliverables($request->deliverables, $assignment);
-        }
-
-        // Create child assignments if specified
-        $childAssignments = [];
-        if ($request->has('child_departments') && is_array($request->child_departments)) {
-            $childAssignments = $this->handleChildAssignments($request->child_departments, $assignment);
-        }
-
-        $response = $assignment->load([
-            'client',
-            'department',
-            'assignedTo',
-            'song.artists',
-            'musicCreationStatus',
-            'editType',
-            'footageType',
-            'deliverables',
-            'notes',
-            'status'
-        ]);
-
-        // Add child_assignments to response if any were created
-        if (!empty($childAssignments)) {
-            $response->child_assignments = $childAssignments;
-        }
-
-        return response()->json($response, 201);
+        // Return assignment ID immediately for Step 2
+        return response()->json([
+            'id' => $assignment->id,
+            'message' => 'Assignment created successfully'
+        ], 201);
     }
 
     private function handleDeliverables(array $deliverableIds = [], Assignment $assignment)
@@ -294,64 +185,6 @@ class AssignmentController extends Controller
         return $childAssignments;
     }
 
-    private function handleNotes(array $notes, Assignment $assignment, bool $isUpdate = false)
-    {
-        $currentUserId = auth()->id();
-
-        if ($isUpdate) {
-            // For updates, track notes by ID instead of content
-            // Get existing notes
-            $existingNotes = $assignment->notes()->get();
-            $existingNotesById = $existingNotes->keyBy('id');
-
-            // Collect IDs from the request
-            $requestedNoteIds = [];
-
-            foreach ($notes as $noteData) {
-                if (!empty(trim($noteData['note']))) {
-                    if (isset($noteData['id']) && $noteData['id']) {
-                        // Update existing note
-                        $requestedNoteIds[] = $noteData['id'];
-                        $note = Note::find($noteData['id']);
-                        if ($note && $note->assignment_id == $assignment->id) {
-                            $note->update([
-                                'note' => trim($noteData['note']),
-                                'note_for' => $noteData['note_for'],
-                                'updated_by' => $currentUserId,
-                            ]);
-                        }
-                    } else {
-                        // Create new note
-                        Note::create([
-                            'assignment_id' => $assignment->id,
-                            'note' => trim($noteData['note']),
-                            'created_by' => $currentUserId,
-                            'note_for' => $noteData['note_for'],
-                        ]);
-                    }
-                }
-            }
-
-            // Soft delete notes that exist in DB but not in request
-            foreach ($existingNotesById as $id => $existingNote) {
-                if (!in_array($id, $requestedNoteIds)) {
-                    $existingNote->delete(); // Soft delete
-                }
-            }
-        } else {
-            // For creates, just create notes from request
-            foreach ($notes as $noteData) {
-                if (!empty(trim($noteData['note']))) {
-                    Note::create([
-                        'assignment_id' => $assignment->id,
-                        'note' => trim($noteData['note']),
-                        'created_by' => $currentUserId,
-                        'note_for' => $noteData['note_for'],
-                    ]);
-                }
-            }
-        }
-    }
 
     private function processMusicCreationData(Request $request, array $validated, Assignment $assignment, bool $isUserRole = false): Assignment
     {
@@ -500,37 +333,13 @@ class AssignmentController extends Controller
             'editType',
             'footageType',
             'deliverables',
-            'notes',
             'parentAssignment',
             'childAssignments',
             'status',
-            'notes.creator',
-            'notes.updatedBy'
         ])->findOrFail($id);
 
-        $user = Auth::user();
-        $formattedNotes = $assignment->notes->map(function ($note) use ($user) {
-            // Check permissions: can edit if user has permission OR is the creator
-            $canEdit = $user->can('edit-notes') || $note->created_by == $user->id;
-            // Check permissions: can delete if user has permission OR is the creator
-            $canDelete = $user->can('delete-notes') || $note->created_by == $user->id;
-
-            return [
-                'id' => $note->id,
-                'note' => $note->note,
-                'note_for' => $note->note_for,
-                'created_by' => $note->creator->name ?? null,
-                'created_at' => $note->created_at ? $note->created_at->format('M j, Y, g:i A') : null,
-                'updated_by' => $note->updatedBy->name ?? null,
-                'updated_at' => $note->updated_at ? $note->updated_at->format('M j, Y, g:i A') : null,
-                'canEdit' => $canEdit,
-                'canDelete' => $canDelete,
-            ];
-        })->toArray();
-
-        // Unset the original relationship and set the formatted array
-        unset($assignment->notes);
-        $assignment->notes = $formattedNotes;
+        // Notes will be fetched separately via NoteController
+        $assignment->notes = [];
 
         return response()->json($assignment);
     }
@@ -552,10 +361,6 @@ class AssignmentController extends Controller
             'assignment_name' => 'nullable|string|max:255',
             'completion_date' => 'nullable|date',
             'assignment_status' => 'nullable|exists:assignment_statuses,code',
-            'notes' => 'nullable|array',
-            'notes.*.id' => 'nullable|exists:notes,id',
-            'notes.*.note' => 'required|string',
-            'notes.*.note_for' => 'required|in:me,team,admin',
         ]);
 
         // Update assignment with basic fields (only update fields that are provided)
@@ -579,12 +384,6 @@ class AssignmentController extends Controller
 
         if (!empty($updateData)) {
             $assignment->update($updateData);
-        }
-
-
-        // Handle notes
-        if ($request->has('notes') && is_array($request->notes)) {
-            $this->handleNotes($request->notes, $assignment, true); // true indicates update mode
         }
 
         // Department-specific validation and processing
@@ -656,7 +455,6 @@ class AssignmentController extends Controller
             'editType',
             'footageType',
             'deliverables',
-            'notes.creator',
             'status'
         ]);
 
