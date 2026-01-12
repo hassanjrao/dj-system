@@ -39,6 +39,13 @@ class Assignment extends Model
                 }, 5); // 5 second timeout to prevent deadlock
             }
         });
+
+        // Auto-set updated_by when updating assignment
+        static::updating(function ($assignment) {
+            if (auth()->check() && !$assignment->isDirty('updated_by')) {
+                $assignment->updated_by = auth()->id();
+            }
+        });
     }
 
     public function client()
@@ -59,6 +66,11 @@ class Assignment extends Model
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function musicCreationStatus()

@@ -1,7 +1,12 @@
 <template>
   <div>
     <!-- Standalone vs Child Toggle -->
-    <v-radio-group v-model="isStandalone" row @change="onStandaloneChange">
+    <v-radio-group
+      v-model="isStandalone"
+      row
+      @change="onStandaloneChange"
+      :disabled="isViewOnly"
+    >
       <v-radio label="Standalone Assignment" :value="true"></v-radio>
       <v-radio label="Child Assignment" :value="false"></v-radio>
     </v-radio-group>
@@ -12,6 +17,7 @@
       v-model="localData.assignment_name"
       label="Assignment Name *"
       :rules="[(v) => !!v || 'Assignment name is required']"
+      :disabled="isViewOnly"
       required
     ></v-text-field>
 
@@ -23,6 +29,7 @@
         item-text="name"
         item-value="id"
         label="Select Parent Department"
+        :disabled="isViewOnly"
         chips
         small-chips
         @change="onParentDepartmentChange"
@@ -36,6 +43,7 @@
         item-value="id"
         label="Select Parent Assignment *"
         :rules="[(v) => !!v || 'Parent assignment is required']"
+        :disabled="isViewOnly"
         chips
         small-chips
         required
@@ -51,6 +59,7 @@
       item-value="value"
       label="Release Timing *"
       :rules="[(v) => !!v || 'Release timing is required']"
+      :disabled="isViewOnly"
       chips
       small-chips
       required
@@ -65,6 +74,7 @@
       item-value="id"
       label="Edit Type *"
       :rules="[(v) => !!v || 'Edit type is required']"
+      :disabled="isViewOnly"
       chips
       small-chips
       required
@@ -78,6 +88,7 @@
       item-value="id"
       label="Footage To Use *"
       :rules="[(v) => !!v || 'Footage type is required']"
+      :disabled="isViewOnly"
       chips
       small-chips
       required
@@ -89,12 +100,13 @@
       label="Completion Date *"
       type="date"
       :rules="[(v) => !!v || 'Completion date is required']"
+      :disabled="isViewOnly"
       required
       :hint="releaseTimingHint"
       persistent-hint
     ></v-text-field>
     <v-btn
-      v-if="localData.release_timing === 'pre-release'"
+      v-if="!isViewOnly && localData.release_timing === 'pre-release'"
       small
       outlined
       color="primary"
@@ -111,12 +123,14 @@
       v-model="localData.deliverable_ids"
       :value="deliverable.id"
       :label="deliverable.name"
+      :disabled="isViewOnly"
     >
       <template v-slot:append>
         <v-checkbox
           v-if="deliverable.needs_distribution"
           v-model="deliverable.needs_distribution_checked"
           label="Needs Distribution"
+          :disabled="isViewOnly"
           hide-details
           dense
         ></v-checkbox>
@@ -133,6 +147,7 @@
       item-text="name"
       item-value="id"
       label="Select departments for child assignments"
+      :disabled="isViewOnly"
       multiple
       chips
       small-chips
@@ -167,6 +182,10 @@ export default {
     assignmentData: {
       type: Object,
       default: () => null,
+    },
+    isViewOnly: {
+      type: Boolean,
+      default: false,
     },
   },
   data() {
@@ -267,16 +286,19 @@ export default {
           // Format for date input (YYYY-MM-DD)
           const date = new Date(dataSource.completion_date);
           if (!isNaN(date.getTime())) {
-            this.localData.completion_date = date.toISOString().split('T')[0];
+            this.localData.completion_date = date.toISOString().split("T")[0];
           }
         }
 
         // Populate deliverable_ids
         if (dataSource.deliverables && Array.isArray(dataSource.deliverables)) {
-          this.localData.deliverable_ids = dataSource.deliverables.map(d => 
-            typeof d === 'object' ? d.id : d
+          this.localData.deliverable_ids = dataSource.deliverables.map((d) =>
+            typeof d === "object" ? d.id : d
           );
-        } else if (dataSource.deliverable_ids && Array.isArray(dataSource.deliverable_ids)) {
+        } else if (
+          dataSource.deliverable_ids &&
+          Array.isArray(dataSource.deliverable_ids)
+        ) {
           this.localData.deliverable_ids = dataSource.deliverable_ids;
         }
       }

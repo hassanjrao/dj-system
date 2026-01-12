@@ -44,6 +44,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/all', 'App\Http\Controllers\AssignmentController@allAssignments')->name('all');
         Route::get('/', 'App\Http\Controllers\AssignmentController@index')->name('index');
         Route::post('/', 'App\Http\Controllers\AssignmentController@store');
+        Route::get('/{id}/view', 'App\Http\Controllers\AssignmentController@view')->name('view');
         Route::get('/{id}/edit', 'App\Http\Controllers\AssignmentController@edit')->name('edit');
         Route::get('/{id}', 'App\Http\Controllers\AssignmentController@show')->name('show');
         Route::get('/{id}/data', 'App\Http\Controllers\AssignmentController@getData')->name('data');

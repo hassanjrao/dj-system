@@ -18,14 +18,17 @@
             </div>
             <div v-if="formData.updated_at_formatted" class="text-caption">
               <span class="font-weight-medium">Last Updated:</span>
+              <span v-if="formData.updated_by_name"
+                >{{ formData.updated_by_name }} on
+              </span>
               <span>{{ formData.updated_at_formatted }}</span>
             </div>
           </div>
         </div>
         <div class="d-flex align-center">
-          <v-btn text small @click="cancel" class="mr-2">Cancel</v-btn>
+          <v-btn v-if="!isViewOnly" text small @click="cancel" class="mr-2">Cancel</v-btn>
           <v-btn
-            v-if="currentStep === 1"
+            v-if="!isViewOnly && currentStep === 1"
             color="primary"
             small
             :disabled="loading"
@@ -33,7 +36,7 @@
             >Next</v-btn
           >
           <v-btn
-            v-if="currentStep === 2 && !isEdit"
+            v-if="!isViewOnly && currentStep === 2 && !isEdit"
             text
             small
             @click="goToPreviousStep"
@@ -41,7 +44,7 @@
             >Back</v-btn
           >
           <v-btn
-            v-if="currentStep === 2"
+            v-if="!isViewOnly && currentStep === 2"
             color="primary"
             small
             :disabled="loading"
@@ -49,12 +52,19 @@
             @click="submit"
             >Save</v-btn
           >
-          <v-btn v-if="currentStep >= 3" text small @click="goToPreviousStep" class="mr-2"
+          <v-btn
+            v-if="!isViewOnly && currentStep >= 3"
+            text
+            small
+            @click="goToPreviousStep"
+            class="mr-2"
             >Back</v-btn
           >
           <v-btn
             v-if="
-              currentStep >= 3 && currentChildIndex < childAssignmentsQueue.length - 1
+              !isViewOnly &&
+              currentStep >= 3 &&
+              currentChildIndex < childAssignmentsQueue.length - 1
             "
             color="primary"
             small
@@ -65,7 +75,9 @@
           >
           <v-btn
             v-if="
-              currentStep >= 3 && currentChildIndex === childAssignmentsQueue.length - 1
+              !isViewOnly &&
+              currentStep >= 3 &&
+              currentChildIndex === childAssignmentsQueue.length - 1
             "
             color="primary"
             small
@@ -111,6 +123,7 @@
                 :rules="[(v) => !!v || 'Client is required']"
                 @change="onClientChange"
                 :search-input.sync="clientSearch"
+                :disabled="isViewOnly"
                 chips
                 small-chips
                 required
@@ -134,6 +147,7 @@
                 :rules="[(v) => !!v || 'Department is required']"
                 @change="onDepartmentChange"
                 :search-input.sync="departmentSearch"
+                :disabled="isViewOnly"
                 chips
                 small-chips
                 required
@@ -192,6 +206,7 @@
                 chips
                 small-chips
                 required
+                :disabled="isViewOnly"
               ></v-autocomplete>
             </v-col>
           </v-row>
@@ -206,6 +221,7 @@
             :lookup-data="lookupData"
             :departments="departments"
             :assignment-data="currentAssignmentData"
+            :is-view-only="isViewOnly"
             @update:modelValue="updateFormData"
           />
 
@@ -218,6 +234,7 @@
             :available-songs="availableSongs"
             :selected-department-id="formData.department_id || null"
             :assignment-data="currentAssignmentData"
+            :is-view-only="isViewOnly"
             @update:modelValue="updateFormData"
           />
 
@@ -261,6 +278,7 @@
                         :value="dept.id"
                         v-model="formData.child_departments"
                         :label="dept.name"
+                        :disabled="isViewOnly"
                         hide-details
                         dense
                       ></v-checkbox>
@@ -319,12 +337,12 @@
               <v-subheader>Notes</v-subheader>
             </v-col>
           </v-row>
-          <v-row v-if="currentStep >= 2 && assignmentId">
+          <v-row v-if="currentStep >= 2 && assignmentId && !isViewOnly">
             <v-col cols="12" md="8">
               <v-text-field
                 v-model="newNote.note"
                 label="Note"
-                :disabled="loadingNotes"
+                :disabled="loadingNotes || isViewOnly"
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="3">
@@ -336,7 +354,7 @@
                 label="Note For"
                 chips
                 small-chips
-                :disabled="loadingNotes"
+                :disabled="loadingNotes || isViewOnly"
               ></v-autocomplete>
             </v-col>
             <v-col cols="12" md="1" class="d-flex align-center">
@@ -344,7 +362,9 @@
                 icon
                 color="primary"
                 @click="addNote"
-                :disabled="!newNote.note || !newNote.note_for || loadingNotes"
+                :disabled="
+                  !newNote.note || !newNote.note_for || loadingNotes || isViewOnly
+                "
                 :loading="loadingNotes"
               >
                 <v-icon>mdi-plus</v-icon>
@@ -415,7 +435,7 @@
                   <v-list-item-action @click.stop>
                     <div v-if="editingNoteIndex !== index" class="d-flex flex-column">
                       <v-btn
-                        v-if="note.canEdit"
+                        v-if="!isViewOnly && note.canEdit"
                         icon
                         small
                         color="primary"
@@ -425,7 +445,7 @@
                         <v-icon small>mdi-pencil</v-icon>
                       </v-btn>
                       <v-btn
-                        v-if="note.canDelete"
+                        v-if="!isViewOnly && note.canDelete"
                         icon
                         small
                         color="error"
@@ -436,6 +456,7 @@
                     </div>
                     <div v-else class="d-flex flex-column">
                       <v-btn
+                        v-if="!isViewOnly"
                         icon
                         small
                         color="success"
@@ -444,7 +465,7 @@
                       >
                         <v-icon small>mdi-check</v-icon>
                       </v-btn>
-                      <v-btn icon small @click.stop="cancelEditNote">
+                      <v-btn v-if="!isViewOnly" icon small @click.stop="cancelEditNote">
                         <v-icon small>mdi-close</v-icon>
                       </v-btn>
                     </div>
@@ -485,6 +506,7 @@
                 chips
                 small-chips
                 required
+                :disabled="isViewOnly"
               ></v-autocomplete>
             </v-col>
           </v-row>
@@ -498,6 +520,7 @@
             :lookup-data="lookupData"
             :departments="departments"
             :assignment-data="currentAssignmentData"
+            :is-view-only="isViewOnly"
             @update:modelValue="updateFormData"
           />
 
@@ -510,6 +533,7 @@
             :available-songs="availableSongs"
             :selected-department-id="formData.department_id || null"
             :assignment-data="currentAssignmentData"
+            :is-view-only="isViewOnly"
             @update:modelValue="updateFormData"
           />
 
@@ -522,12 +546,12 @@
               <v-subheader>Notes</v-subheader>
             </v-col>
           </v-row>
-          <v-row v-if="currentStep >= 3 && formData.id">
+          <v-row v-if="currentStep >= 3 && formData.id && !isViewOnly">
             <v-col cols="12" md="8">
               <v-text-field
                 v-model="newNote.note"
                 label="Note"
-                :disabled="loadingNotes"
+                :disabled="loadingNotes || isViewOnly"
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="3">
@@ -539,7 +563,7 @@
                 label="Note For"
                 chips
                 small-chips
-                :disabled="loadingNotes"
+                :disabled="loadingNotes || isViewOnly"
               ></v-autocomplete>
             </v-col>
             <v-col cols="12" md="1" class="d-flex align-center">
@@ -547,7 +571,9 @@
                 icon
                 color="primary"
                 @click="addNote"
-                :disabled="!newNote.note || !newNote.note_for || loadingNotes"
+                :disabled="
+                  !newNote.note || !newNote.note_for || loadingNotes || isViewOnly
+                "
                 :loading="loadingNotes"
               >
                 <v-icon>mdi-plus</v-icon>
@@ -612,7 +638,7 @@
                   <v-list-item-action @click.stop>
                     <div v-if="editingNoteIndex !== index" class="d-flex flex-column">
                       <v-btn
-                        v-if="note.canEdit"
+                        v-if="!isViewOnly && note.canEdit"
                         icon
                         small
                         color="primary"
@@ -622,7 +648,7 @@
                         <v-icon small>mdi-pencil</v-icon>
                       </v-btn>
                       <v-btn
-                        v-if="note.canDelete"
+                        v-if="!isViewOnly && note.canDelete"
                         icon
                         small
                         color="error"
@@ -633,6 +659,7 @@
                     </div>
                     <div v-else class="d-flex flex-column">
                       <v-btn
+                        v-if="!isViewOnly"
                         icon
                         small
                         color="success"
@@ -641,7 +668,7 @@
                       >
                         <v-icon small>mdi-check</v-icon>
                       </v-btn>
-                      <v-btn icon small @click.stop="cancelEditNote">
+                      <v-btn v-if="!isViewOnly" icon small @click.stop="cancelEditNote">
                         <v-icon small>mdi-close</v-icon>
                       </v-btn>
                     </div>
@@ -743,6 +770,10 @@ export default {
       type: Array,
       default: () => [],
     },
+    isViewOnly: {
+      type: Boolean,
+      default: false,
+    },
   },
   computed: {
     // Get user permissions from Vuex store
@@ -779,6 +810,12 @@ export default {
       return department ? department.name : "";
     },
     formTitle() {
+      if (this.isViewOnly) {
+        if (this.selectedDepartmentName) {
+          return `View ${this.selectedDepartmentName} Assignment`;
+        }
+        return "View Assignment";
+      }
       if (this.isEdit) {
         if (this.selectedDepartmentName) {
           return `Edit ${this.selectedDepartmentName} Assignment`;

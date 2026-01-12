@@ -8,7 +8,7 @@
       item-value="id"
       label="What Song *"
       :rules="[(v) => !!v || 'Song selection is required']"
-      :disabled="isChild"
+      :disabled="isChild || isViewOnly"
       chips
       small-chips
       required
@@ -22,6 +22,7 @@
       type="date"
       readonly
       :value="displayReleaseDate || ''"
+      :disabled="isViewOnly"
     ></v-text-field>
 
     <!-- Completion Date (auto-calculated, editable) -->
@@ -32,12 +33,13 @@
           label="Completion Date *"
           type="date"
           :rules="[(v) => !!v || 'Completion date is required']"
+          :disabled="isViewOnly"
           required
           hint="Auto-calculated based on song type and release date"
           persistent-hint
         ></v-text-field>
       </v-col>
-      <v-col cols="3" class="d-flex align-center">
+      <v-col cols="3" class="d-flex align-center" v-if="!isViewOnly">
         <v-btn small outlined color="primary" @click="calculateCompletionDate"
           >UPDATE</v-btn
         >
@@ -52,6 +54,7 @@
       item-value="id"
       label="Please Select All Deliverables Needed *"
       :rules="[(v) => (v && v.length > 0) || 'At least one deliverable is required']"
+      :disabled="isViewOnly"
       multiple
       chips
       small-chips
@@ -92,6 +95,10 @@ export default {
     assignmentData: {
       type: Object,
       default: () => null,
+    },
+    isViewOnly: {
+      type: Boolean,
+      default: false,
     },
   },
   data() {
@@ -187,16 +194,19 @@ export default {
           // Format for date input (YYYY-MM-DD)
           const date = new Date(dataSource.completion_date);
           if (!isNaN(date.getTime())) {
-            this.localData.completion_date = date.toISOString().split('T')[0];
+            this.localData.completion_date = date.toISOString().split("T")[0];
           }
         }
 
         // Populate deliverables
         if (dataSource.deliverables && Array.isArray(dataSource.deliverables)) {
-          this.localData.deliverables = dataSource.deliverables.map(d =>
-            typeof d === 'object' ? d.id : d
+          this.localData.deliverables = dataSource.deliverables.map((d) =>
+            typeof d === "object" ? d.id : d
           );
-        } else if (dataSource.deliverable_ids && Array.isArray(dataSource.deliverable_ids)) {
+        } else if (
+          dataSource.deliverable_ids &&
+          Array.isArray(dataSource.deliverable_ids)
+        ) {
           this.localData.deliverables = dataSource.deliverable_ids;
         }
 
@@ -281,7 +291,7 @@ export default {
         })
         .then((response) => {
           console.log("deliverables", response.data);
-          this.deliverables  = response.data;
+          this.deliverables = response.data;
         })
         .catch((error) => {
           console.error("Error getting deliverables:", error);

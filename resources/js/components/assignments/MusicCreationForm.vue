@@ -10,11 +10,16 @@
           v-model="songData.name"
           label="Song Name *"
           :rules="[(v) => !!v || 'Song name is required']"
+          :disabled="isViewOnly"
           required
         ></v-text-field>
 
         <!-- Version Name -->
-        <v-text-field v-model="songData.version" label="Version Name"></v-text-field>
+        <v-text-field
+          v-model="songData.version"
+          label="Version Name"
+          :disabled="isViewOnly"
+        ></v-text-field>
 
         <!-- Album Selector -->
         <v-autocomplete
@@ -23,11 +28,12 @@
           item-text="name"
           item-value="id"
           label="Album"
+          :disabled="isViewOnly"
           clearable
           chips
           small-chips
         >
-          <template v-slot:append-item>
+          <template v-slot:append-item v-if="!isViewOnly">
             <v-list-item @click="showAlbumDialog = true">
               <v-list-item-content>
                 <v-list-item-title>+ Create New Album</v-list-item-title>
@@ -43,13 +49,14 @@
           item-text="name"
           item-value="id"
           label="Artist(s) *"
+          :disabled="isViewOnly"
           multiple
           chips
           small-chips
           :rules="[(v) => (v && v.length > 0) || 'At least one artist is required']"
           required
         >
-          <template v-slot:append-item>
+          <template v-slot:append-item v-if="!isViewOnly">
             <v-list-item @click="showArtistDialog = true">
               <v-list-item-content>
                 <v-list-item-title>+ Create New Artist</v-list-item-title>
@@ -66,6 +73,7 @@
           item-value="id"
           label="Music Type *"
           :rules="[(v) => !!v || 'Music type is required']"
+          :disabled="isViewOnly"
           chips
           small-chips
           required
@@ -79,6 +87,7 @@
           v-model.number="songData.bpm"
           label="BPM"
           type="number"
+          :disabled="isViewOnly"
           :rules="[(v) => !v || (v >= 0 && v <= 999) || 'BPM must be between 0 and 999']"
           maxlength="3"
         ></v-text-field>
@@ -90,6 +99,7 @@
           item-text="name"
           item-value="id"
           label="Key"
+          :disabled="isViewOnly"
           clearable
           chips
           small-chips
@@ -102,6 +112,7 @@
           item-text="name"
           item-value="id"
           label="Genre"
+          :disabled="isViewOnly"
           clearable
           chips
           small-chips
@@ -114,6 +125,7 @@
           label="Release Date & Time (PST) *"
           type="datetime-local"
           :rules="[(v) => !!v || 'Release date is required']"
+          :disabled="isViewOnly"
           required
         ></v-text-field>
 
@@ -124,9 +136,10 @@
               v-model="songData.completion_date"
               label="Completion Date"
               type="date"
+              :disabled="isViewOnly"
             ></v-text-field>
           </v-col>
-          <v-col cols="3" class="d-flex align-center">
+          <v-col cols="3" class="d-flex align-center" v-if="!isViewOnly">
             <v-btn small outlined color="primary" @click="calculateCompletionDate"
               >UPDATE</v-btn
             >
@@ -140,6 +153,7 @@
           item-text="name"
           item-value="id"
           label="Creation Status"
+          :disabled="isViewOnly"
           clearable
           chips
           small-chips
@@ -148,7 +162,7 @@
     </v-row>
 
     <!-- Album Creation Dialog -->
-    <v-dialog v-model="showAlbumDialog" max-width="500">
+    <v-dialog v-model="showAlbumDialog" max-width="500" v-if="!isViewOnly">
       <v-card>
         <v-card-title>Create New Album</v-card-title>
         <v-card-text>
@@ -171,7 +185,7 @@
     </v-dialog>
 
     <!-- Artist Creation Dialog -->
-    <v-dialog v-model="showArtistDialog" max-width="500">
+    <v-dialog v-model="showArtistDialog" max-width="500" v-if="!isViewOnly">
       <v-card>
         <v-card-title>Create New Artist</v-card-title>
         <v-card-text>
@@ -222,6 +236,10 @@ export default {
     assignmentData: {
       type: Object,
       default: () => null,
+    },
+    isViewOnly: {
+      type: Boolean,
+      default: false,
     },
   },
   data() {

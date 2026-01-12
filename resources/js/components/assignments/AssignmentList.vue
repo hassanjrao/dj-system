@@ -94,7 +94,7 @@
               :items="assignments"
               :loading="loading"
               class="elevation-1"
-              @click:row="goToEdit"
+              @click:row="goToAssignment"
               :items-per-page="25"
             >
               <template v-slot:item.assignment_id="{ item }">
@@ -164,7 +164,7 @@
                 </v-chip>
               </template>
               <template v-slot:item.actions="{ item }">
-                <v-tooltip bottom>
+                <v-tooltip bottom v-if="canEditAssignment(item)">
                   <template v-slot:activator="{ on, attrs }">
                     <v-btn
                       icon
@@ -178,6 +178,21 @@
                     </v-btn>
                   </template>
                   <span>Edit Assignment</span>
+                </v-tooltip>
+                <v-tooltip bottom v-else>
+                  <template v-slot:activator="{ on, attrs }">
+                    <v-btn
+                      icon
+                      small
+                      color="info"
+                      v-bind="attrs"
+                      v-on="on"
+                      @click.stop="goToView(item)"
+                    >
+                      <v-icon small>mdi-eye</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>View Assignment</span>
                 </v-tooltip>
               </template>
             </v-data-table>
@@ -309,8 +324,38 @@ export default {
         this.getAssignments();
       }, 500);
     },
+    canEditAssignment(item) {
+      const user = this.$store.getters["auth/user"];
+      if (!user) return false;
+
+      // Super-admin and admin can always edit
+      if (
+        this.$store.getters["auth/isSuperAdmin"] ||
+        this.$store.getters["auth/isAdmin"]
+      ) {
+        return true;
+      }
+
+      // User can edit if they created the assignment
+      if (this.$store.getters["auth/hasRole"]("user") && item.created_by === user.id) {
+        return true;
+      }
+
+      return false;
+    },
+    goToAssignment(item) {
+      // Navigate to edit if user can edit, otherwise to view
+      if (this.canEditAssignment(item)) {
+        this.goToEdit(item);
+      } else {
+        this.goToView(item);
+      }
+    },
     goToEdit(item) {
       window.location.href = `/assignments/${item.id}/edit`;
+    },
+    goToView(item) {
+      window.location.href = `/assignments/${item.id}/view`;
     },
     createAssignment() {
       const url = `/assignments/create`;

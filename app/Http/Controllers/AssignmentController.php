@@ -67,10 +67,53 @@ class AssignmentController extends Controller
         return view('assignments.create', compact('departments', 'clients', 'users', 'lookupData'));
     }
 
-    public function edit($id)
+    public function view($id)
     {
         $user = Auth::user();
         $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'status', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.status', 'childAssignments.department', 'createdBy'])->findOrFail($id);
+
+        // Check if user can view the assignment
+        if (!$this->canViewAssignment($user, $assignment)) {
+            abort(403);
+        }
+
+        // Convert song artists to IDs array for frontend (if song exists)
+        if ($assignment->song) {
+            $assignment->song_artists = $assignment->song->artists->pluck('id')->toArray();
+        } else {
+            $assignment->song_artists = [];
+        }
+
+        // Notes will be fetched separately via NoteController
+        $assignment->notes = [];
+
+        // Format childAssignments with completion_date and completion_date_days
+        $formattedChildAssignments = [];
+        if ($assignment->childAssignments && $assignment->childAssignments->count() > 0) {
+            $formattedChildAssignments = $assignment->childAssignments->map(function ($childAssignment) {
+                $childArray = $childAssignment->toArray();
+                $childArray['completion_date'] = $childAssignment->getFormattedCompletionDate();
+                $childArray['completion_date_days'] = $childAssignment->getCompletionDateDays();
+                return $childArray;
+            })->toArray();
+        }
+        $assignment->childAssignments = $formattedChildAssignments;
+
+        // Add creation and update information for frontend
+        $assignment->created_by_name = $assignment->createdBy ? $assignment->createdBy->name : null;
+        $assignment->created_at_formatted = $assignment->created_at ? $assignment->created_at->format('M j, Y, g:i A') : null;
+        $assignment->updated_by_name = $assignment->updatedBy ? $assignment->updatedBy->name : null;
+        $assignment->updated_at_formatted = $assignment->updated_at ? $assignment->updated_at->format('M j, Y, g:i A') : null;
+
+        return view('assignments.view', [
+            'assignment' => $assignment
+        ]);
+    }
+
+    public function edit($id)
+    {
+        $user = Auth::user();
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'status', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.status', 'childAssignments.department', 'createdBy', 'updatedBy'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
@@ -101,6 +144,7 @@ class AssignmentController extends Controller
         // Add creation and update information for frontend
         $assignment->created_by_name = $assignment->createdBy ? $assignment->createdBy->name : null;
         $assignment->created_at_formatted = $assignment->created_at ? $assignment->created_at->format('M j, Y, g:i A') : null;
+        $assignment->updated_by_name = $assignment->updatedBy ? $assignment->updatedBy->name : null;
         $assignment->updated_at_formatted = $assignment->updated_at ? $assignment->updated_at->format('M j, Y, g:i A') : null;
 
         $departments = Department::all();
@@ -266,6 +310,7 @@ class AssignmentController extends Controller
         }
 
         if (!empty($updateData)) {
+            // updated_by will be set automatically by model observer
             $assignment->update($updateData);
         }
 
@@ -289,6 +334,7 @@ class AssignmentController extends Controller
         }
 
         if (isset($validated['song_id'])) {
+            // updated_by will be set automatically by model observer
             $assignment->update([
                 'song_id' => $validated['song_id']
             ]);
@@ -383,6 +429,7 @@ class AssignmentController extends Controller
 
 
         if (!empty($updateData)) {
+            // updated_by will be set automatically by model observer
             $assignment->update($updateData);
         }
 
