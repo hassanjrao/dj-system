@@ -127,8 +127,10 @@
                 small-chips
                 required
               >
-                <template v-slot:append-item
-                v-if="$store.getters['auth/hasAnyRole'](['super-admin'])">
+                <template
+                  v-slot:append-item
+                  v-if="$store.getters['auth/hasAnyRole'](['super-admin'])"
+                >
                   <v-list-item @click="showClientDialog = true">
                     <v-list-item-content>
                       <v-list-item-title>+ Create New Client</v-list-item-title>
@@ -362,9 +364,7 @@
                 icon
                 color="primary"
                 @click="addNote"
-                :disabled="
-                  !newNote.note || !newNote.note_for || loadingNotes
-                "
+                :disabled="!newNote.note || !newNote.note_for || loadingNotes"
                 :loading="loadingNotes"
               >
                 <v-icon>mdi-plus</v-icon>
@@ -704,11 +704,11 @@
         <v-card-actions class="justify-end">
           <v-btn text small @click="closeClientDialog" class="mr-2">Cancel</v-btn>
           <v-btn
-          color="primary"
-          small
-          :loading="loadingClient"
-          :disabled="!clientFormValid"
-          @click="createClient"
+            color="primary"
+            small
+            :loading="loadingClient"
+            :disabled="!clientFormValid"
+            @click="createClient"
             >Create</v-btn
           >
         </v-card-actions>
@@ -724,7 +724,9 @@
         </v-card-text>
         <v-card-actions class="justify-end">
           <v-btn text small @click="showDeleteNoteDialog = false">Cancel</v-btn>
-          <v-btn color="error" small @click="deleteNote" :loading="loadingNotes">Delete</v-btn>
+          <v-btn color="error" small @click="deleteNote" :loading="loadingNotes"
+            >Delete</v-btn
+          >
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -814,17 +816,24 @@ export default {
       return department ? department.name : "";
     },
     formTitle() {
+      const assignmentId =
+        this.formData.assignment_id || (this.assignmentId ? `#${this.assignmentId}` : "");
+
       if (this.isViewOnly) {
         if (this.selectedDepartmentName) {
-          return `View ${this.selectedDepartmentName} Assignment`;
+          return assignmentId
+            ? `View ${this.selectedDepartmentName} Assignment ${assignmentId}`
+            : `View ${this.selectedDepartmentName} Assignment`;
         }
-        return "View Assignment";
+        return assignmentId ? `View Assignment ${assignmentId}` : "View Assignment";
       }
       if (this.isEdit) {
         if (this.selectedDepartmentName) {
-          return `Edit ${this.selectedDepartmentName} Assignment`;
+          return assignmentId
+            ? `Edit ${this.selectedDepartmentName} Assignment ${assignmentId}`
+            : `Edit ${this.selectedDepartmentName} Assignment`;
         }
-        return "Edit Assignment";
+        return assignmentId ? `Edit Assignment ${assignmentId}` : "Edit Assignment";
       }
       if (this.selectedDepartmentName) {
         return `Create ${this.selectedDepartmentName} Assignment`;
