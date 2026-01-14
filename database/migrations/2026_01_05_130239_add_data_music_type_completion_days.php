@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\MusicTypeCompletionDay;
+use Database\Seeders\DepartmentSeeder;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 
 class AddDataMusicTypeCompletionDays extends Migration
@@ -14,6 +16,13 @@ class AddDataMusicTypeCompletionDays extends Migration
      */
     public function up()
     {
+        // call department seeder
+        Artisan::call('db:seed', [
+            '--class' => DepartmentSeeder::class,
+        ]);
+        Artisan::call('db:seed', [
+            '--class' => LookupTableSeeder::class,
+        ]);
         $data = [
             // Original
             [

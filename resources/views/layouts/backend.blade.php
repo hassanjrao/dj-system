@@ -205,7 +205,7 @@
                                 if (auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin')) {
                                     $departments = \App\Models\Department::all();
                                 } else {
-                                    $departments = auth()->user()->departments;
+                                    $departments = \App\Models\Department::all();
                                 }
 
                                 // Get "My Assignments" counts per department (filtered by assigned_to_id)

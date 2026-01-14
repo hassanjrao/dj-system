@@ -42,9 +42,9 @@ class Assignment extends Model
 
         // Auto-set updated_by when updating assignment
         static::updating(function ($assignment) {
-            if (auth()->check() && !$assignment->isDirty('updated_by')) {
+            // if (auth()->check() && !$assignment->isDirty('updated_by')) {
                 $assignment->updated_by = auth()->id();
-            }
+            // }
         });
     }
 

@@ -427,7 +427,6 @@ class AssignmentController extends Controller
             $updateData['assignment_status'] = $validated['assignment_status'];
         }
 
-
         if (!empty($updateData)) {
             // updated_by will be set automatically by model observer
             $assignment->update($updateData);
