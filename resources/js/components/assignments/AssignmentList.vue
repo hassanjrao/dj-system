@@ -325,23 +325,7 @@ export default {
       }, 500);
     },
     canEditAssignment(item) {
-      const user = this.$store.getters["auth/user"];
-      if (!user) return false;
-
-      // Super-admin and admin can always edit
-      if (
-        this.$store.getters["auth/isSuperAdmin"] ||
-        this.$store.getters["auth/isAdmin"]
-      ) {
-        return true;
-      }
-
-      // User can edit if they created the assignment
-      if (this.$store.getters["auth/hasRole"]("user") && item.created_by === user.id) {
-        return true;
-      }
-
-      return false;
+      return item.can_edit;
     },
     goToAssignment(item) {
       // Navigate to edit if user can edit, otherwise to view

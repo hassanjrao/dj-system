@@ -204,10 +204,6 @@ class AssignmentController extends Controller
 
     private function handleDeliverables(array $deliverableIds = [], Assignment $assignment)
     {
-        // $deliverableIds = $this->preSelectDeliverables(
-        //     $assignment->department_id,
-        //     $deliverableIds
-        // );
         $assignment->deliverables()->sync($deliverableIds);
     }
 
@@ -501,7 +497,8 @@ class AssignmentController extends Controller
             'editType',
             'footageType',
             'deliverables',
-            'status'
+            'status',
+            'childAssignments'
         ]);
 
         return response()->json($response);
@@ -954,6 +951,7 @@ class AssignmentController extends Controller
                         'name' => $deliverable->name,
                     ];
                 })->toArray(),
+                'can_edit' => $this->canEditAssignment(auth()->user(), $assignment),
             ];
         });
 
