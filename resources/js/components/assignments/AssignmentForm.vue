@@ -337,12 +337,12 @@
               <v-subheader>Notes</v-subheader>
             </v-col>
           </v-row>
-          <v-row v-if="currentStep >= 2 && assignmentId && !isViewOnly">
+          <v-row v-if="currentStep >= 2 && assignmentId">
             <v-col cols="12" md="8">
               <v-text-field
                 v-model="newNote.note"
                 label="Note"
-                :disabled="loadingNotes || isViewOnly"
+                :disabled="loadingNotes"
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="3">
@@ -354,7 +354,7 @@
                 label="Note For"
                 chips
                 small-chips
-                :disabled="loadingNotes || isViewOnly"
+                :disabled="loadingNotes"
               ></v-autocomplete>
             </v-col>
             <v-col cols="12" md="1" class="d-flex align-center">
@@ -363,7 +363,7 @@
                 color="primary"
                 @click="addNote"
                 :disabled="
-                  !newNote.note || !newNote.note_for || loadingNotes || isViewOnly
+                  !newNote.note || !newNote.note_for || loadingNotes
                 "
                 :loading="loadingNotes"
               >
@@ -435,7 +435,7 @@
                   <v-list-item-action @click.stop>
                     <div v-if="editingNoteIndex !== index" class="d-flex flex-column">
                       <v-btn
-                        v-if="!isViewOnly && note.canEdit"
+                        v-if="note.canEdit"
                         icon
                         small
                         color="primary"
@@ -445,7 +445,7 @@
                         <v-icon small>mdi-pencil</v-icon>
                       </v-btn>
                       <v-btn
-                        v-if="!isViewOnly && note.canDelete"
+                        v-if="note.canDelete"
                         icon
                         small
                         color="error"
@@ -456,7 +456,6 @@
                     </div>
                     <div v-else class="d-flex flex-column">
                       <v-btn
-                        v-if="!isViewOnly"
                         icon
                         small
                         color="success"
@@ -465,7 +464,7 @@
                       >
                         <v-icon small>mdi-check</v-icon>
                       </v-btn>
-                      <v-btn v-if="!isViewOnly" icon small @click.stop="cancelEditNote">
+                      <v-btn icon small @click.stop="cancelEditNote">
                         <v-icon small>mdi-close</v-icon>
                       </v-btn>
                     </div>
@@ -725,7 +724,7 @@
         </v-card-text>
         <v-card-actions class="justify-end">
           <v-btn text small @click="showDeleteNoteDialog = false">Cancel</v-btn>
-          <v-btn color="error" small @click="deleteNote">Delete</v-btn>
+          <v-btn color="error" small @click="deleteNote" :loading="loadingNotes">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

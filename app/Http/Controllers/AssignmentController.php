@@ -814,7 +814,10 @@ class AssignmentController extends Controller
         // Apply MUSIC CREATION restriction for users with role 'user'
         $baseQuery->restrictMusicCreationForUsers($user);
 
-        $activeStatusCodes = AssignmentStatus::whereIn('code', ['pending', 'in-progress', 'on-hold'])->pluck('code')->toArray();
+        $activeStatusCodes = AssignmentStatus::query()
+        ->whereIn('code', ['pending', 'in-progress', 'on-hold'])
+        ->pluck('code')
+        ->toArray();
 
         // Calculate counts for all assignments
         $today = Carbon::today();
@@ -888,7 +891,11 @@ class AssignmentController extends Controller
         // Order by completion date (due date)
         $query->orderBy('completion_date', 'asc');
 
+        // dd($query->toSql());
+
         $assignments = $query->get();
+
+        // dd($assignments);
 
         // Return only needed fields for frontend
         $assignments = $assignments->map(function ($assignment) use ($today) {

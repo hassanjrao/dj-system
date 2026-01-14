@@ -10,10 +10,6 @@ class ClientController extends Controller
 {
     public function index()
     {
-        if (!Auth::user()->can('manage-clients')) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-
         $clients = Client::orderBy('name')->get();
         return response()->json($clients);
     }

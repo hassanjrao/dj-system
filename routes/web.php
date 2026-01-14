@@ -79,11 +79,13 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Client routes
-    Route::get('clients', 'App\Http\Controllers\ClientController@index');
-    Route::post('clients', 'App\Http\Controllers\ClientController@store');
-    Route::get('clients/{id}', 'App\Http\Controllers\ClientController@show');
-    Route::put('clients/{id}', 'App\Http\Controllers\ClientController@update');
-    Route::delete('clients/{id}', 'App\Http\Controllers\ClientController@destroy');
+    Route::prefix('clients')->name('clients.')->group(function () {
+        Route::get('/', 'App\Http\Controllers\ClientController@index');
+        Route::post('/', 'App\Http\Controllers\ClientController@store');
+        Route::get('/{id}', 'App\Http\Controllers\ClientController@show');
+        Route::put('/{id}', 'App\Http\Controllers\ClientController@update');
+        Route::delete('/{id}', 'App\Http\Controllers\ClientController@destroy');
+    });
 
     // Album routes
     Route::get('albums', 'App\Http\Controllers\AlbumController@index');
