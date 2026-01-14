@@ -369,6 +369,14 @@
 
                 <!-- Right Section -->
                 <div class="d-flex align-items-center">
+
+                    @can('create-assignments')
+                        <button type="button" onclick="window.location.href='{{ route('assignments.create') }}'" class="btn btn-sm btn-alt-secondary d-flex align-items-center">
+                            <i class="fa fa-fw fa-plus"></i>
+                            <span class="d-none d-sm-inline-block ms-2">Create Assignment</span>
+                        </button>
+                    @endcan
+
                     <div class="dropdown d-inline-block ms-2" style="position: relative;">
                         <button type="button" class="btn btn-sm btn-alt-secondary d-flex align-items-center"
                             id="page-header-user-dropdown" onclick="toggleUserDropdown(event)" aria-haspopup="true"
