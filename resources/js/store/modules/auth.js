@@ -79,6 +79,8 @@ const getters = {
     },
 };
 
+console.log('auth store', state.user);
+
 export default {
     namespaced: true,
     state,

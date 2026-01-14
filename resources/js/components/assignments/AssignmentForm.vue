@@ -31,7 +31,7 @@
             v-if="!isViewOnly && currentStep === 1"
             color="primary"
             small
-            :disabled="loading"
+            :loading="loading"
             @click="goToNextStep"
             >Next</v-btn
           >
@@ -47,7 +47,6 @@
             v-if="!isViewOnly && currentStep === 2"
             color="primary"
             small
-            :disabled="loading"
             :loading="loading"
             @click="submit"
             >Save</v-btn
@@ -128,7 +127,8 @@
                 small-chips
                 required
               >
-                <template v-slot:append-item v-if="!$store.getters['auth/hasPermission']">
+                <template v-slot:append-item
+                v-if="$store.getters['auth/hasAnyRole'](['super-admin'])">
                   <v-list-item @click="showClientDialog = true">
                     <v-list-item-content>
                       <v-list-item-title>+ Create New Client</v-list-item-title>
@@ -704,7 +704,12 @@
         </v-card-text>
         <v-card-actions class="justify-end">
           <v-btn text small @click="closeClientDialog" class="mr-2">Cancel</v-btn>
-          <v-btn color="primary" small :disabled="!clientFormValid" @click="createClient"
+          <v-btn
+          color="primary"
+          small
+          :loading="loadingClient"
+          :disabled="!clientFormValid"
+          @click="createClient"
             >Create</v-btn
           >
         </v-card-actions>
@@ -976,6 +981,7 @@ export default {
       validationErrors: [], // For displaying validation errors in alert
       assignmentId: null, // Store assignment ID after creation in Step 1
       loadingNotes: false, // Loading state for notes operations
+      loadingClient: false,
     };
   },
   async mounted() {
@@ -1142,6 +1148,7 @@ export default {
       if (!this.$refs.clientForm.validate()) {
         return;
       }
+      this.loadingClient = true;
       axios
         .post("/clients", this.newClient)
         .then((response) => {
@@ -1167,6 +1174,9 @@ export default {
             errorMessage = errors.join("\n");
           }
           alert(errorMessage);
+        })
+        .finally(() => {
+          this.loadingClient = false;
         });
     },
     closeClientDialog() {

@@ -15,11 +15,13 @@ class AuthController extends Controller
     public function getCurrentUser()
     {
         $user = Auth::user();
-        
+
         return response()->json([
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
             'roles' => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name'),
             'departments' => $user->departments,
