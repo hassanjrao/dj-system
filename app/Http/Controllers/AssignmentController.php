@@ -330,6 +330,27 @@ class AssignmentController extends Controller
         }
 
         if (isset($validated['song_id'])) {
+            // Check if the song already has a Music Mastering assignment (prevent duplicates)
+            $musicMasteringDept = Department::where('slug', 'music-mastering')->first();
+            if ($musicMasteringDept) {
+                $existingAssignment = Assignment::where('department_id', $musicMasteringDept->id)
+                    ->where('song_id', $validated['song_id'])
+                    ->where('id', '!=', $assignment->id) // Exclude current assignment when updating
+                    ->first();
+
+                if ($existingAssignment) {
+                    $song = \App\Models\Song::find($validated['song_id']);
+                    $songName = $song ? $song->name : 'Selected song';
+                    throw new \Illuminate\Validation\ValidationException(
+                        \Illuminate\Support\Facades\Validator::make([], []),
+                        response()->json([
+                            'message' => "A Music Mastering assignment already exists for \"{$songName}\". Each song can only have one Music Mastering assignment.",
+                            'errors' => ['song_id' => ["A Music Mastering assignment already exists for this song."]]
+                        ], 422)
+                    );
+                }
+            }
+
             // updated_by will be set automatically by model observer
             $assignment->update([
                 'song_id' => $validated['song_id']
@@ -498,7 +519,9 @@ class AssignmentController extends Controller
             'footageType',
             'deliverables',
             'status',
-            'childAssignments'
+            'childAssignments',
+            'childAssignments.department',
+            'childAssignments.deliverables'
         ]);
 
         return response()->json($response);
@@ -685,10 +708,11 @@ class AssignmentController extends Controller
         ], $childData);
 
 
-        $this->handleDeliverables([], $childAssignment);
+        // $this->handleDeliverables([], $childAssignment);
 
         // Ensure department relation is available for response payloads
         $childAssignment->loadMissing('department');
+        $childAssignment->loadMissing('deliverables');
 
         return $childAssignment;
     }

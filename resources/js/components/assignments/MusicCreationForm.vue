@@ -523,7 +523,7 @@ export default {
         song_artists: this.songData.artists || [],
       };
 
-      console.log("payload", payload);
+      console.log("payload hereerr", payload);
       this.$emit("update:modelValue", payload);
     },
   },

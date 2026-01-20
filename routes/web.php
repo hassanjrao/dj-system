@@ -75,7 +75,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/{id}', 'App\Http\Controllers\UserController@update');
 
         // Parameterized routes last to avoid conflicts
-        Route::get('/{departmentId}', 'App\Http\Controllers\UserController@getByDepartment');
+        Route::get('/{departmentId}/department', 'App\Http\Controllers\UserController@getByDepartment');
     });
 
     // Client routes

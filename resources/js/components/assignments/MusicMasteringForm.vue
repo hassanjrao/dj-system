@@ -199,15 +199,27 @@ export default {
         }
 
         // Populate deliverables
+        console.log(
+          "MusicMasteringForm: dataSource.deliverables",
+          dataSource.deliverables
+        );
         if (dataSource.deliverables && Array.isArray(dataSource.deliverables)) {
           this.localData.deliverables = dataSource.deliverables.map((d) =>
             typeof d === "object" ? d.id : d
+          );
+          console.log(
+            "MusicMasteringForm: populated deliverables",
+            this.localData.deliverables
           );
         } else if (
           dataSource.deliverable_ids &&
           Array.isArray(dataSource.deliverable_ids)
         ) {
           this.localData.deliverables = dataSource.deliverable_ids;
+          console.log(
+            "MusicMasteringForm: populated deliverable_ids",
+            this.localData.deliverables
+          );
         }
 
         // Calculate completion date if song exists
@@ -331,6 +343,15 @@ export default {
           }
         }
       },
+    },
+    selectedDepartmentId: {
+      handler(newVal) {
+        // Reload deliverables when department changes
+        if (newVal) {
+          this.getDeliverables();
+        }
+      },
+      immediate: true,
     },
   },
 };

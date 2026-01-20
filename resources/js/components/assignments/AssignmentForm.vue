@@ -510,10 +510,15 @@
             </v-col>
           </v-row>
 
-          <!-- Department-specific forms for child assignments -->
+          <!-- Department-specific forms for child assignments (wait for data to load) -->
+          <!-- Use :model-value instead of v-model to prevent direct formData updates bypassing protection -->
           <MusicCreationForm
-            v-if="formData.department_id === departmentIds.musicCreationId"
-            v-model="formData"
+            v-if="
+              !childFormLoading &&
+              formData.department_id === departmentIds.musicCreationId
+            "
+            :key="`music-creation-${formData.id || 'new'}-${formData.department_id}`"
+            :model-value="formData"
             :is-child="true"
             :parent-data="parentAssignmentData"
             :lookup-data="lookupData"
@@ -524,17 +529,33 @@
           />
 
           <MusicMasteringForm
-            v-else-if="formData.department_id === departmentIds.musicMasteringId"
-            v-model="formData"
+            v-else-if="
+              !childFormLoading &&
+              formData.department_id === departmentIds.musicMasteringId
+            "
+            :key="`music-mastering-${formData.id || 'new'}-${formData.department_id}`"
+            :model-value="formData"
             :is-child="true"
             :parent-data="parentAssignmentData"
             :lookup-data="lookupData"
             :available-songs="availableSongs"
-            :selected-department-id="formData.department_id || null"
+            :selected-department-id="
+              childAssignmentsQueue[currentChildIndex]?.department_id ||
+              formData.department_id ||
+              null
+            "
             :assignment-data="currentAssignmentData"
             :is-view-only="isViewOnly"
             @update:modelValue="updateFormData"
           />
+
+          <!-- Loading indicator while child form data is being fetched -->
+          <v-progress-circular
+            v-if="childFormLoading"
+            indeterminate
+            color="primary"
+            class="ma-4"
+          ></v-progress-circular>
 
           <!-- Common fields -->
           <v-divider class="my-4"></v-divider>
@@ -807,6 +828,15 @@ export default {
       return true;
     },
     selectedDepartmentName() {
+      // When editing child assignments (step 3+), use the department from the queue
+      // to prevent title flickering when form data is temporarily modified
+      if (this.currentStep >= 3 && this.childAssignmentsQueue.length > 0) {
+        const currentChild = this.childAssignmentsQueue[this.currentChildIndex];
+        if (currentChild && currentChild.department) {
+          return currentChild.department.name;
+        }
+      }
+
       if (!this.formData.department_id || !this.departments.length) {
         return "";
       }
@@ -816,8 +846,17 @@ export default {
       return department ? department.name : "";
     },
     formTitle() {
-      const assignmentId =
-        this.formData.assignment_id || (this.assignmentId ? `#${this.assignmentId}` : "");
+      // When editing child assignments (step 3+), use the assignment ID from the queue
+      let assignmentId;
+      if (this.currentStep >= 3 && this.childAssignmentsQueue.length > 0) {
+        const currentChild = this.childAssignmentsQueue[this.currentChildIndex];
+        assignmentId =
+          currentChild?.assignment_id || (currentChild?.id ? `#${currentChild.id}` : "");
+      } else {
+        assignmentId =
+          this.formData.assignment_id ||
+          (this.assignmentId ? `#${this.assignmentId}` : "");
+      }
 
       if (this.isViewOnly) {
         if (this.selectedDepartmentName) {
@@ -841,6 +880,11 @@ export default {
       return "Create Assignment";
     },
     currentAssignmentData() {
+      // When editing child assignments (step 3+), prioritize loadedAssignmentData
+      // because assignmentData prop still has the parent's data
+      if (this.currentStep >= 3 && this.loadedAssignmentData) {
+        return this.loadedAssignmentData;
+      }
       // Return prop if available, otherwise return loaded data
       return this.assignmentData || this.loadedAssignmentData;
     },
@@ -1090,6 +1134,8 @@ export default {
       this.loadUsersForDepartment();
       // Load child departments for this parent department
       this.loadChildDepartments();
+      // Reload songs with appropriate filtering (e.g., exclude songs with existing Music Mastering assignments)
+      this.loadAvailableSongs();
     },
     onClientChange(clientId) {
       // Handle client selection
@@ -1106,7 +1152,7 @@ export default {
 
       this.loadingUsers = true;
       axios
-        .get(`/users/${this.formData.department_id}`)
+        .get(`/users/${this.formData.department_id}/department`)
         .then((response) => {
           this.filteredUsers = response.data;
           this.loadingUsers = false;
@@ -1118,11 +1164,31 @@ export default {
         });
     },
     loadAvailableSongs() {
+      // Build params - filter out songs with existing Music Mastering assignments
+      // when creating/editing a Music Mastering assignment
+      const params = {};
+
+      // Check if current department is Music Mastering
+      const isMusicMastering =
+        this.formData.department_id === this.departmentIds.musicMasteringId;
+
+      if (isMusicMastering) {
+        params.exclude_mastering = true;
+        // Pass current assignment ID when editing so the current song is still shown
+        if (this.isEdit && this.assignmentId) {
+          params.current_assignment_id = this.assignmentId;
+        }
+      }
+
       axios
-        .get("/songs")
+        .get("/songs", { params })
         .then((response) => {
           this.availableSongs = response.data;
-          console.log("Available songs loaded:", this.availableSongs.length);
+          console.log(
+            "Available songs loaded:",
+            this.availableSongs.length,
+            isMusicMastering ? "(filtered for Music Mastering)" : ""
+          );
         })
         .catch((error) => {
           console.error("Error loading songs:", error);
@@ -1200,6 +1266,19 @@ export default {
       }
     },
     updateFormData(newData) {
+      // When editing child assignments (step 3+), NEVER allow department_id to be changed
+      // by child form emissions - remove it from newData before merging
+      if (this.currentStep >= 3 && newData && newData.department_id !== undefined) {
+        console.log(
+          "updateFormData: Blocking department_id change from",
+          newData.department_id,
+          "- keeping",
+          this.formData.department_id
+        );
+        const { department_id, ...safeData } = newData;
+        newData = safeData;
+      }
+
       this.formData = { ...this.formData, ...newData };
       this.$emit("update:modelValue", this.formData);
     },
@@ -1274,6 +1353,10 @@ export default {
           // Set assignment ID for notes
           this.assignmentId = childData.id;
 
+          // Update loadedAssignmentData so currentAssignmentData returns child data
+          // This is needed for child forms to access deliverables and other data
+          this.loadedAssignmentData = childData;
+
           // Update parent assignment data from child's parent relationship
           if (childData.parent_assignment) {
             this.parentAssignmentData = childData.parent_assignment;
@@ -1327,9 +1410,15 @@ export default {
                 // Move to next child
                 this.currentChildIndex++;
                 this.currentStep++;
-                this.loadChildAssignmentData(
-                  this.childAssignmentsQueue[this.currentChildIndex].id
-                );
+
+                // Set loading state and next child's department_id to prevent wrong form
+                this.childFormLoading = true;
+                const nextChild = this.childAssignmentsQueue[this.currentChildIndex];
+                if (nextChild.department_id) {
+                  this.formData.department_id = nextChild.department_id;
+                }
+
+                this.loadChildAssignmentData(nextChild.id);
               } else {
                 // All children processed, redirect to assignments list
                 window.location.href = "/assignments";
@@ -1381,10 +1470,20 @@ export default {
                 this.parentAssignmentId = response.data.id;
                 this.parentAssignmentData = response.data;
                 this.currentChildIndex = 0;
+
+                // Set loading state BEFORE changing step to prevent wrong form from rendering
+                this.childFormLoading = true;
+
+                // Set child's department_id immediately to prevent parent's form from rendering
+                const firstChild = this.childAssignmentsQueue[0];
+                if (firstChild.department_id) {
+                  this.formData.department_id = firstChild.department_id;
+                }
+
                 this.currentStep = 3;
 
                 // Load first child assignment
-                this.loadChildAssignmentData(this.childAssignmentsQueue[0].id);
+                this.loadChildAssignmentData(firstChild.id);
               } else {
                 // No child assignments, redirect to assignments list
                 window.location.href =
@@ -1551,9 +1650,15 @@ export default {
           // Go to previous child assignment
           this.currentChildIndex--;
           this.currentStep--;
-          this.loadChildAssignmentData(
-            this.childAssignmentsQueue[this.currentChildIndex].id
-          );
+
+          // Set loading state and previous child's department_id to prevent wrong form
+          this.childFormLoading = true;
+          const prevChild = this.childAssignmentsQueue[this.currentChildIndex];
+          if (prevChild.department_id) {
+            this.formData.department_id = prevChild.department_id;
+          }
+
+          this.loadChildAssignmentData(prevChild.id);
         } else {
           // Go back to Step 2 (parent form)
           // Note: We don't reload parent data as it's already been saved
@@ -1768,7 +1873,14 @@ export default {
   watch: {
     modelValue: {
       handler(newVal) {
-        this.formData = { ...newVal };
+        // When editing child assignments (step 3+), preserve current department_id
+        if (this.currentStep >= 3 && this.formData.department_id) {
+          const currentDepartmentId = this.formData.department_id;
+          this.formData = { ...newVal, department_id: currentDepartmentId };
+        } else {
+          this.formData = { ...newVal };
+        }
+
         this.initializeClient();
         this.initializeNotes();
       },
@@ -1776,6 +1888,7 @@ export default {
     },
     "formData.department_id": {
       handler() {
+        console.log("department_id changed", this.formData.department_id);
         this.loadUsersForDepartment();
       },
     },

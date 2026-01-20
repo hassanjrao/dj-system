@@ -13,11 +13,35 @@ class SongController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $songs = Song::with(['album', 'musicType', 'musicGenre', 'musicKey', 'artists'])
-            ->orderBy('name')
-            ->get();
+        $query = Song::with(['album', 'musicType', 'musicGenre', 'musicKey', 'artists']);
+
+        // Filter out songs that already have Music Mastering assignments
+        // Used when selecting songs for new Music Mastering assignments
+        if ($request->has('exclude_mastering') && $request->exclude_mastering) {
+            $currentAssignmentId = $request->get('current_assignment_id');
+
+            // Get the Music Mastering department
+            $musicMasteringDept = \App\Models\Department::where('slug', 'music-mastering')->first();
+
+            if ($musicMasteringDept) {
+                // Get song IDs that already have Music Mastering assignments
+                $existingQuery = \App\Models\Assignment::where('department_id', $musicMasteringDept->id)
+                    ->whereNotNull('song_id');
+
+                // Exclude current assignment when editing (so the current song is still shown)
+                if ($currentAssignmentId) {
+                    $existingQuery->where('id', '!=', $currentAssignmentId);
+                }
+
+                $existingSongIds = $existingQuery->pluck('song_id')->toArray();
+
+                $query->whereNotIn('id', $existingSongIds);
+            }
+        }
+
+        $songs = $query->orderBy('name')->get();
 
         return response()->json($songs);
     }
