@@ -145,19 +145,6 @@
             >
           </v-col>
         </v-row>
-
-        <!-- Status -->
-        <v-autocomplete
-          v-model="localData.music_creation_status_id"
-          :items="lookupData.music_creation_statuses || []"
-          item-text="name"
-          item-value="id"
-          label="Creation Status"
-          :disabled="isViewOnly"
-          clearable
-          chips
-          small-chips
-        ></v-autocomplete>
       </v-col>
     </v-row>
 
@@ -342,13 +329,6 @@ export default {
           completion_date: completionDate,
           artists: artists,
         };
-
-        // Also update localData with music_creation_status_id if available
-        if (this.assignmentData?.music_creation_status_id) {
-          this.localData.music_creation_status_id = this.assignmentData.music_creation_status_id;
-        } else if (this.modelValue?.music_creation_status_id) {
-          this.localData.music_creation_status_id = this.modelValue.music_creation_status_id;
-        }
       }
     },
     populateFromParent() {

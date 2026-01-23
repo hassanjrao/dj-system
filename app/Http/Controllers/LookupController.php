@@ -6,11 +6,11 @@ use Illuminate\Http\Request;
 use App\Models\MusicType;
 use App\Models\MusicKey;
 use App\Models\MusicGenre;
-use App\Models\MusicCreationStatus;
 use App\Models\EditType;
 use App\Models\FootageType;
 use App\Models\ReleaseTiming;
 use App\Models\Department;
+use App\Models\DepartmentStatus;
 use App\Models\Deliverable;
 use App\Models\Client;
 
@@ -31,11 +31,6 @@ class LookupController extends Controller
         return response()->json(MusicGenre::where('is_active', true)->get());
     }
 
-    public function musicCreationStatuses()
-    {
-        return response()->json(MusicCreationStatus::where('is_active', true)->get());
-    }
-
     public function editTypes()
     {
         return response()->json(EditType::where('is_active', true)->get());
@@ -54,6 +49,11 @@ class LookupController extends Controller
     public function departments()
     {
         return response()->json(Department::where('is_active', true)->get());
+    }
+
+    public function departmentStatuses($departmentId)
+    {
+        return response()->json(DepartmentStatus::forDepartment($departmentId)->get());
     }
 
     public function deliverables(Request $request)
@@ -163,7 +163,6 @@ class LookupController extends Controller
                 'music_types' => MusicType::where('is_active', true)->get(),
                 'music_keys' => MusicKey::where('is_active', true)->get(),
                 'music_genres' => MusicGenre::where('is_active', true)->get(),
-                'music_creation_statuses' => MusicCreationStatus::where('is_active', true)->get(),
                 'edit_types' => EditType::where('is_active', true)->get(),
                 'footage_types' => FootageType::where('is_active', true)->get(),
                 'release_timings' => ReleaseTiming::where('is_active', true)->get(),

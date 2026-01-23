@@ -9,7 +9,9 @@
 
         <div class="content pb-5">
             <assignment-form :model-value="{{ json_encode($assignment) }}" :is-edit="true"
-                :assignment-data="{{ json_encode($assignment) }}">
+                :assignment-data="{{ json_encode($assignment) }}"
+                :available-statuses-prop="{{ json_encode($availableStatuses ?? []) }}"
+                :can-change-status-prop="{{ json_encode($canChangeStatus ?? false) }}">
             </assignment-form>
         </div>
     </div>

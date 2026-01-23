@@ -168,13 +168,47 @@
                 }}</span>
               </template>
               <template v-slot:item.assignment_status="{ item }">
+                <!-- Music Mastering: show static chip (status is calculated from deliverables) -->
                 <v-chip
-                  text-color="white"
-                  :color="getStatusColor(item.assignment_status)"
+                  v-if="item.department && item.department.slug === 'music-mastering'"
+                  :color="getStatusFromAvailable(item).color || 'grey'"
                   small
+                  text-color="white"
                 >
-                  {{ formatStatus(item.assignment_status) }}
+                  {{ getStatusFromAvailable(item).name || item.assignment_status }}
                 </v-chip>
+                <!-- Other departments: show editable dropdown -->
+                <div v-else @click.stop @mousedown.stop>
+                  <v-autocomplete
+                    v-model="item.assignment_status"
+                    :items="item.available_statuses || []"
+                    item-text="name"
+                    item-value="code"
+                    :disabled="!item.can_change_status"
+                    dense
+                    hide-details
+                    @change="updateAssignmentStatus(item)"
+                  >
+                    <template v-slot:selection="{ item: statusItem }">
+                      <v-chip
+                        :color="statusItem.color || 'grey'"
+                        small
+                        text-color="white"
+                      >
+                        {{ statusItem.name }}
+                      </v-chip>
+                    </template>
+                    <template v-slot:item="{ item: statusItem }">
+                      <v-chip
+                        :color="statusItem.color || 'grey'"
+                        small
+                        text-color="white"
+                      >
+                        {{ statusItem.name }}
+                      </v-chip>
+                    </template>
+                  </v-autocomplete>
+                </div>
               </template>
               <template v-slot:item.actions="{ item }">
                 <v-tooltip bottom v-if="canEditAssignment(item)">
@@ -386,23 +420,30 @@ export default {
       const options = { year: "numeric", month: "short", day: "numeric" };
       return d.toLocaleDateString("en-US", options);
     },
-    formatStatus(status) {
-      const statusMap = {
-        pending: "Pending",
-        "in-progress": "In Progress",
-        completed: "Completed",
-        "on-hold": "On Hold",
-      };
-      return statusMap[status] || status;
+    async updateAssignmentStatus(item) {
+      try {
+        const response = await axios.patch(`/assignments/${item.id}/status`, {
+          status: item.assignment_status,
+        });
+        this.$toast?.success(response.data.message || "Status updated successfully");
+        // Refresh counts
+        this.getAssignments();
+      } catch (error) {
+        console.error("Error updating status:", error);
+        this.$toast?.error(error.response?.data?.message || "Failed to update status");
+        // Revert the change by refreshing
+        this.getAssignments();
+      }
     },
-    getStatusColor(status) {
-      const colors = {
-        pending: "grey",
-        "in-progress": "blue",
-        completed: "green",
-        "on-hold": "orange",
-      };
-      return colors[status] || "grey";
+    getStatusFromAvailable(item) {
+      // Find the status object from available_statuses that matches the current assignment_status
+      if (item.available_statuses && item.assignment_status) {
+        const status = item.available_statuses.find(
+          (s) => s.code === item.assignment_status
+        );
+        return status || { name: item.assignment_status, color: "grey" };
+      }
+      return { name: item.assignment_status || "Unknown", color: "grey" };
     },
     getDaysRemainingClass(daysText) {
       if (!daysText) return "";

@@ -51,6 +51,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/{id}', 'App\Http\Controllers\AssignmentController@update');
         Route::delete('/{id}', 'App\Http\Controllers\AssignmentController@destroy');
         Route::get('/{id}/available-songs', 'App\Http\Controllers\AssignmentController@getAvailableSongs');
+        Route::patch('/{id}/status', 'App\Http\Controllers\AssignmentController@updateStatus');
 
         Route::post('/{assignment}/deliverables/{deliverable}/status', 'App\Http\Controllers\DeliverableController@updateStatus');
 
@@ -116,6 +117,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('lookup/departments', 'App\Http\Controllers\LookupController@departments');
     Route::get('lookup/deliverables', 'App\Http\Controllers\LookupController@deliverables');
     Route::get('lookup/child-departments', 'App\Http\Controllers\LookupController@childDepartments');
+    Route::get('lookup/department-statuses/{departmentId}', 'App\Http\Controllers\LookupController@departmentStatuses');
 
     // Note routes
     Route::prefix('notes')->name('notes.')->group(function () {

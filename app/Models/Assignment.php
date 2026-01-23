@@ -43,7 +43,7 @@ class Assignment extends Model
         // Auto-set updated_by when updating assignment
         static::updating(function ($assignment) {
             // if (auth()->check() && !$assignment->isDirty('updated_by')) {
-                $assignment->updated_by = auth()->id();
+            $assignment->updated_by = auth()->id();
             // }
         });
     }
@@ -71,11 +71,6 @@ class Assignment extends Model
     public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function musicCreationStatus()
-    {
-        return $this->belongsTo(MusicCreationStatus::class);
     }
 
     public function editType()
@@ -125,9 +120,62 @@ class Assignment extends Model
         return $this->hasMany(AssignmentRelationship::class, 'child_assignment_id');
     }
 
-    public function status()
+    /**
+     * Get the department status for this assignment.
+     */
+    public function departmentStatus()
     {
-        return $this->belongsTo(AssignmentStatus::class, 'assignment_status', 'code');
+        return $this->belongsTo(DepartmentStatus::class, 'assignment_status', 'code')
+            ->where('department_id', $this->department_id);
+    }
+
+    /**
+     * Check if assignment status is completed based on department_statuses table.
+     *
+     * @return bool
+     */
+    public function getIsCompletedAttribute(): bool
+    {
+        $status = DepartmentStatus::where('department_id', $this->department_id)
+            ->where('code', $this->assignment_status)
+            ->first();
+
+        return $status && $status->is_completed ? true : false;
+    }
+
+    /**
+     * Scope to filter assignments that are completed.
+     * Joins with department_statuses to check is_completed flag.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeCompleted($query)
+    {
+        return $query->whereExists(function ($subQuery) {
+            $subQuery->select(DB::raw(1))
+                ->from('department_statuses')
+                ->whereColumn('department_statuses.department_id', 'assignments.department_id')
+                ->whereColumn('department_statuses.code', 'assignments.assignment_status')
+                ->where('department_statuses.is_completed', true);
+        });
+    }
+
+    /**
+     * Scope to filter assignments that are active (not completed).
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeActive($query)
+    {
+        return $query->whereExists(function ($subQuery) {
+            $subQuery->select(DB::raw(1))
+                ->from('department_statuses')
+                ->whereColumn('department_statuses.department_id', 'assignments.department_id')
+                ->whereColumn('department_statuses.code', 'assignments.assignment_status')
+                ->where('department_statuses.is_completed', false);
+        });
     }
 
     /**
@@ -182,7 +230,14 @@ class Assignment extends Model
                 ->where(function ($subQuery) use ($user) {
                     $subQuery->where('created_by', $user->id)
                              ->orWhere('assigned_to_id', $user->id)
-                             ->orWhere('assignment_status', 'completed');
+                             // Check if status is completed using department_statuses table
+                             ->orWhereExists(function ($completedQuery) {
+                                 $completedQuery->select(DB::raw(1))
+                                     ->from('department_statuses')
+                                     ->whereColumn('department_statuses.department_id', 'assignments.department_id')
+                                     ->whereColumn('department_statuses.code', 'assignments.assignment_status')
+                                     ->where('department_statuses.is_completed', true);
+                             });
                 });
             });
         });
@@ -228,5 +283,54 @@ class Assignment extends Model
         } else {
             return $daysRemaining . ' days to go';
         }
+    }
+
+    /**
+     * Auto-update assignment status for Music Mastering based on deliverables.
+     * - All deliverables completed/uploaded → status = 'completed'
+     * - Any deliverable pending → status = 'in-progress' (or 'pending' if none started)
+     *
+     * @return bool Whether status was updated
+     */
+    public function updateStatusFromDeliverables(): bool
+    {
+        // Only apply to Music Mastering department
+        if (!$this->department || $this->department->slug !== 'music-mastering') {
+            return false;
+        }
+
+        $deliverables = $this->deliverables;
+
+        // If no deliverables, keep current status
+        if ($deliverables->isEmpty()) {
+            return false;
+        }
+
+        // Check all deliverable statuses
+        $allCompleted = $deliverables->every(function ($deliverable) {
+            return in_array($deliverable->pivot->status, ['completed', 'uploaded']);
+        });
+
+        $anyStarted = $deliverables->contains(function ($deliverable) {
+            return in_array($deliverable->pivot->status, ['completed', 'uploaded']);
+        });
+
+        // Determine new status
+        if ($allCompleted) {
+            $newStatus = 'completed';
+        } elseif ($anyStarted) {
+            $newStatus = 'in-progress';
+        } else {
+            $newStatus = 'pending';
+        }
+
+        // Update if status changed
+        if ($this->assignment_status !== $newStatus) {
+            $this->assignment_status = $newStatus;
+            $this->save();
+            return true;
+        }
+
+        return false;
     }
 }

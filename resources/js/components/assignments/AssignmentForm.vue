@@ -190,8 +190,8 @@
             </v-col>
           </v-row>
 
-          <!-- Assigned To (filtered by department) -->
-          <v-row>
+          <!-- Assigned To (filtered by department) and Status -->
+          <v-row align="center">
             <v-col cols="12" md="6">
               <v-autocomplete
                 v-model="formData.assigned_to_id"
@@ -209,7 +209,47 @@
                 small-chips
                 required
                 :disabled="isViewOnly"
+                hide-details="auto"
               ></v-autocomplete>
+            </v-col>
+
+            <!-- Status dropdown (only in edit/view mode) -->
+            <v-col v-if="isEdit || isViewOnly" cols="12" md="6">
+              <v-row align="center" no-gutters>
+                <v-col :cols="canChangeStatus && statusChanged ? 8 : 12">
+                  <v-select
+                    v-model="statusFormData.assignment_status"
+                    :items="availableStatuses"
+                    item-text="name"
+                    item-value="code"
+                    label="Status"
+                    :disabled="!canChangeStatus"
+                    hide-details
+                  >
+                    <template v-slot:selection="{ item }">
+                      <v-chip :color="item.color || 'grey'" small text-color="white">
+                        {{ item.name }}
+                      </v-chip>
+                    </template>
+                    <template v-slot:item="{ item }">
+                      <v-chip :color="item.color || 'grey'" small text-color="white">
+                        {{ item.name }}
+                      </v-chip>
+                    </template>
+                  </v-select>
+                </v-col>
+                <!-- Update Status button (appears when status changed) -->
+                <v-col v-if="canChangeStatus && statusChanged" cols="4" class="pl-2">
+                  <v-btn
+                    color="primary"
+                    small
+                    :loading="statusUpdating"
+                    @click="updateStatus"
+                  >
+                    Update Status
+                  </v-btn>
+                </v-col>
+              </v-row>
             </v-col>
           </v-row>
 
@@ -801,6 +841,14 @@ export default {
       type: Boolean,
       default: false,
     },
+    availableStatusesProp: {
+      type: Array,
+      default: () => [],
+    },
+    canChangeStatusProp: {
+      type: Boolean,
+      default: false,
+    },
   },
   computed: {
     // Get user permissions from Vuex store
@@ -826,6 +874,9 @@ export default {
         return false;
       }
       return true;
+    },
+    statusChanged() {
+      return this.statusFormData.assignment_status !== this.originalStatus;
     },
     selectedDepartmentName() {
       // When editing child assignments (step 3+), use the department from the queue
@@ -1034,6 +1085,14 @@ export default {
       assignmentId: null, // Store assignment ID after creation in Step 1
       loadingNotes: false, // Loading state for notes operations
       loadingClient: false,
+      // Status management
+      statusFormData: {
+        assignment_status: null,
+      },
+      originalStatus: null,
+      availableStatuses: [],
+      canChangeStatus: false,
+      statusUpdating: false,
     };
   },
   async mounted() {
@@ -1090,10 +1149,11 @@ export default {
       this.loadUsersForDepartment();
       this.loadAvailableSongs();
 
-      // If editing, load notes and child departments
+      // If editing, load notes, child departments, and initialize status
       if (this.isEdit && this.formData.department_id) {
         this.loadNotes();
         this.loadChildDepartments();
+        this.initializeStatus();
       }
     } catch (error) {
       console.error("Error loading initial data:", error);
@@ -1125,6 +1185,60 @@ export default {
         if (client) {
           this.selectedClient = client.id;
         }
+      }
+    },
+    initializeStatus() {
+      // Initialize status data from props or load from API
+
+      // Set current status
+      this.statusFormData.assignment_status = this.formData.assignment_status;
+      this.originalStatus = this.formData.assignment_status;
+
+      // Set available statuses and permission from props
+      if (this.availableStatusesProp && this.availableStatusesProp.length > 0) {
+        this.availableStatuses = this.availableStatusesProp;
+      }
+      this.canChangeStatus = this.canChangeStatusProp;
+
+      // If not set from props, load from API
+      if (!this.availableStatuses || this.availableStatuses.length === 0) {
+        this.loadAvailableStatuses();
+      }
+    },
+    async loadAvailableStatuses() {
+      if (!this.formData.department_id) return;
+
+      try {
+        const response = await axios.get(
+          `/lookup/department-statuses/${this.formData.department_id}`
+        );
+        this.availableStatuses = response.data;
+      } catch (error) {
+        console.error("Error loading available statuses:", error);
+        this.availableStatuses = [];
+      }
+    },
+    async updateStatus() {
+      if (!this.assignmentId || !this.statusFormData.assignment_status) return;
+
+      this.statusUpdating = true;
+      try {
+        const response = await axios.patch(`/assignments/${this.assignmentId}/status`, {
+          status: this.statusFormData.assignment_status,
+        });
+
+        // Update the original status to the new value
+        this.originalStatus = this.statusFormData.assignment_status;
+        this.formData.assignment_status = this.statusFormData.assignment_status;
+
+        this.$toast?.success(response.data.message || "Status updated successfully");
+      } catch (error) {
+        console.error("Error updating status:", error);
+        // Revert to original status on error
+        this.statusFormData.assignment_status = this.originalStatus;
+        this.$toast?.error(error.response?.data?.message || "Failed to update status");
+      } finally {
+        this.statusUpdating = false;
       }
     },
     onDepartmentChange() {

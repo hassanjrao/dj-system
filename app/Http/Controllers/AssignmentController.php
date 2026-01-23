@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Assignment;
 use App\Models\Department;
+use App\Models\DepartmentStatus;
 use App\Models\MusicTypeCompletionDay;
 use App\Models\Deliverable;
 use App\Models\Artist;
 use App\Models\Song;
 use App\Models\AssignmentRelationship;
-use App\Models\AssignmentStatus;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -59,7 +59,6 @@ class AssignmentController extends Controller
             'music_types' => \App\Models\MusicType::all(),
             'music_keys' => \App\Models\MusicKey::all(),
             'music_genres' => \App\Models\MusicGenre::all(),
-            'music_creation_statuses' => \App\Models\MusicCreationStatus::all(),
             'edit_types' => \App\Models\EditType::all(),
             'footage_types' => \App\Models\FootageType::all(),
         ];
@@ -70,7 +69,7 @@ class AssignmentController extends Controller
     public function view($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'status', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.status', 'childAssignments.department', 'createdBy'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.department', 'createdBy'])->findOrFail($id);
 
         // Check if user can view the assignment
         if (!$this->canViewAssignment($user, $assignment)) {
@@ -105,15 +104,23 @@ class AssignmentController extends Controller
         $assignment->updated_by_name = $assignment->updatedBy ? $assignment->updatedBy->name : null;
         $assignment->updated_at_formatted = $assignment->updated_at ? $assignment->updated_at->format('M j, Y, g:i A') : null;
 
+        // Get available statuses for this department
+        $availableStatuses = DepartmentStatus::forDepartment($assignment->department_id)->get();
+
+        // Check if current user can change status
+        $canChangeStatus = $this->canChangeStatus($user, $assignment);
+
         return view('assignments.view', [
-            'assignment' => $assignment
+            'assignment' => $assignment,
+            'availableStatuses' => $availableStatuses,
+            'canChangeStatus' => $canChangeStatus,
         ]);
     }
 
     public function edit($id)
     {
         $user = Auth::user();
-        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'status', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.status', 'childAssignments.department', 'createdBy', 'updatedBy'])->findOrFail($id);
+        $assignment = Assignment::with(['client', 'department', 'assignedTo', 'deliverables', 'song.artists', 'parentAssignment.song.artists', 'childAssignments.assignedTo', 'childAssignments.department', 'createdBy', 'updatedBy'])->findOrFail($id);
 
         if (!$this->canEditAssignment($user, $assignment)) {
             abort(403);
@@ -156,10 +163,15 @@ class AssignmentController extends Controller
             'music_types' => \App\Models\MusicType::all(),
             'music_keys' => \App\Models\MusicKey::all(),
             'music_genres' => \App\Models\MusicGenre::all(),
-            'music_creation_statuses' => \App\Models\MusicCreationStatus::all(),
             'edit_types' => \App\Models\EditType::all(),
             'footage_types' => \App\Models\FootageType::all(),
         ];
+
+        // Get available statuses for this department
+        $availableStatuses = DepartmentStatus::forDepartment($assignment->department_id)->get();
+
+        // Check if current user can change status
+        $canChangeStatus = $this->canChangeStatus($user, $assignment);
 
         // Return JSON if requested via API (e.g., for child assignment loading)
         if (request()->wantsJson() || request()->expectsJson()) {
@@ -169,10 +181,12 @@ class AssignmentController extends Controller
                 'clients' => $clients,
                 'users' => $users,
                 'lookupData' => $lookupData,
+                'available_statuses' => $availableStatuses,
+                'can_change_status' => $canChangeStatus,
             ]);
         }
 
-        return view('assignments.edit', compact('assignment', 'departments', 'clients', 'users', 'lookupData'));
+        return view('assignments.edit', compact('assignment', 'departments', 'clients', 'users', 'lookupData', 'availableStatuses', 'canChangeStatus'));
     }
 
     public function store(Request $request)
@@ -184,8 +198,10 @@ class AssignmentController extends Controller
             'department_id' => 'required|exists:departments,id',
         ]);
 
-        // Set default assignment_status
-        $defaultStatus = AssignmentStatus::where('code', 'pending')->first();
+        // Set default assignment_status from department_statuses table
+        $defaultStatus = DepartmentStatus::where('department_id', $validated['department_id'])
+            ->where('is_default', true)
+            ->first();
         $statusCode = $defaultStatus ? $defaultStatus->code : 'pending';
 
         $assignment = Assignment::create([
@@ -230,7 +246,6 @@ class AssignmentController extends Controller
     {
         $validated = array_merge($validated, $request->validate([
             'song_id' => 'nullable|exists:songs,id',
-            'music_creation_status_id' => 'nullable|exists:music_creation_statuses,id',
             'song_name' => 'nullable|string|max:255',
             'song_version' => 'nullable|string|max:255',
             'song_album_id' => 'nullable|exists:albums,id',
@@ -301,9 +316,6 @@ class AssignmentController extends Controller
         if (isset($validated['song_id'])) {
             $updateData['song_id'] = $validated['song_id'];
         }
-        if (isset($validated['music_creation_status_id'])) {
-            $updateData['music_creation_status_id'] = $validated['music_creation_status_id'];
-        }
 
         if (!empty($updateData)) {
             // updated_by will be set automatically by model observer
@@ -366,8 +378,8 @@ class AssignmentController extends Controller
         $user = Auth::user();
         $assignment = Assignment::with([
             'client', 'department', 'assignedTo', 'song.artists',
-            'musicCreationStatus', 'editType', 'footageType', 'deliverables',
-            'parentAssignment', 'childAssignments', 'status'
+            'editType', 'footageType', 'deliverables',
+            'parentAssignment', 'childAssignments'
         ])->findOrFail($id);
 
         // Check permissions
@@ -392,13 +404,11 @@ class AssignmentController extends Controller
             'department',
             'assignedTo',
             'song.artists',
-            'musicCreationStatus',
             'editType',
             'footageType',
             'deliverables',
             'parentAssignment',
             'childAssignments',
-            'status',
         ])->findOrFail($id);
 
         // Notes will be fetched separately via NoteController
@@ -423,7 +433,7 @@ class AssignmentController extends Controller
             'assigned_to_id' => 'nullable|exists:users,id',
             'assignment_name' => 'nullable|string|max:255',
             'completion_date' => 'nullable|date',
-            'assignment_status' => 'nullable|exists:assignment_statuses,code',
+            'assignment_status' => 'nullable|string',
         ]);
 
         // Update assignment with basic fields (only update fields that are provided)
@@ -514,11 +524,9 @@ class AssignmentController extends Controller
             'department',
             'assignedTo',
             'song.artists',
-            'musicCreationStatus',
             'editType',
             'footageType',
             'deliverables',
-            'status',
             'childAssignments',
             'childAssignments.department',
             'childAssignments.deliverables'
@@ -549,7 +557,6 @@ class AssignmentController extends Controller
         if ($department->slug === 'music-creation') {
             $validated = array_merge($validated, $request->validate([
                 'song_id' => 'nullable|exists:songs,id',
-                'music_creation_status_id' => 'nullable|exists:music_creation_statuses,id',
                 'release_date' => 'nullable|date',
                 // Song creation fields (if creating new song)
                 'song_name' => 'nullable|string|max:255',
@@ -689,12 +696,18 @@ class AssignmentController extends Controller
 
     private function populateChildAssignment($parentAssignment, $childDepartmentId)
     {
+        // Get default status for the child department
+        $defaultStatus = DepartmentStatus::where('department_id', $childDepartmentId)
+            ->where('is_default', true)
+            ->first();
+        $statusCode = $defaultStatus ? $defaultStatus->code : 'pending';
+
         $childData = [
             'client_id' => $parentAssignment->client_id,
             'department_id' => $childDepartmentId,
             'parent_assignment_id' => $parentAssignment->id,
             'created_by' => $parentAssignment->created_by,
-            'assignment_status' => AssignmentStatus::where('code', 'pending')->first()->code,
+            'assignment_status' => $statusCode,
         ];
 
         // Auto-populate song_id from parent
@@ -835,12 +848,7 @@ class AssignmentController extends Controller
         // Apply MUSIC CREATION restriction for users with role 'user'
         $baseQuery->restrictMusicCreationForUsers($user);
 
-        $activeStatusCodes = AssignmentStatus::query()
-        ->whereIn('code', ['pending', 'in-progress', 'on-hold'])
-        ->pluck('code')
-        ->toArray();
-
-        // Calculate counts for all assignments
+        // Calculate counts for all assignments using the new department_statuses system
         $today = Carbon::today();
         $allAssignments = $baseQuery->get();
         $activeCount = 0;
@@ -848,9 +856,10 @@ class AssignmentController extends Controller
         $completedCount = 0;
 
         foreach ($allAssignments as $assignment) {
-            if ($assignment->assignment_status === 'completed') {
+            // Use the is_completed accessor which checks department_statuses table
+            if ($assignment->is_completed) {
                 $completedCount++;
-            } elseif (in_array($assignment->assignment_status, $activeStatusCodes)) {
+            } else {
                 $activeCount++;
                 if ($assignment->completion_date) {
                     $daysRemaining = $today->diffInDays($assignment->completion_date, false);
@@ -863,7 +872,7 @@ class AssignmentController extends Controller
 
         // Query for filtered assignments
         $query = Assignment::with([
-            'client', 'department', 'assignedTo', 'song.musicType', 'deliverables', 'status', 'createdBy',
+            'client', 'department', 'assignedTo', 'song.musicType', 'deliverables', 'createdBy',
             'childAssignments.department' // For Music Creation to show child assignments as deliverables
         ]);
 
@@ -877,11 +886,11 @@ class AssignmentController extends Controller
             $query->where('department_id', $departmentId);
         }
 
-        // Filter by status
+        // Filter by status using new department_statuses system
         if ($status === 'active') {
-            $query->whereIn('assignment_status', $activeStatusCodes);
+            $query->active();
         } elseif ($status === 'completed') {
-            $query->where('assignment_status', 'completed');
+            $query->completed();
         }
         // If status is 'all', don't filter by status (show all assignments)
 
@@ -924,7 +933,7 @@ class AssignmentController extends Controller
         $musicCreationDeptId = $musicCreationDept ? $musicCreationDept->id : null;
 
         // Return only needed fields for frontend
-        $assignments = $assignments->map(function ($assignment) use ($today, $musicCreationDeptId) {
+        $assignments = $assignments->map(function ($assignment) use ($today, $musicCreationDeptId, $user) {
             // Get formatted completion date and days using model methods
             $completionDateFormatted = $assignment->getFormattedCompletionDate();
             $completionDateDays = $assignment->getCompletionDateDays($today);
@@ -961,6 +970,7 @@ class AssignmentController extends Controller
                 'department' => $assignment->department ? [
                     'id' => $assignment->department->id,
                     'name' => $assignment->department->name,
+                    'slug' => $assignment->department->slug,
                 ] : null,
                 'assigned_to' => $assignment->assignedTo ? [
                     'id' => $assignment->assignedTo->id,
@@ -994,6 +1004,8 @@ class AssignmentController extends Controller
                     })->toArray(),
                 'is_music_creation' => $musicCreationDeptId && $assignment->department_id === $musicCreationDeptId,
                 'can_edit' => $this->canEditAssignment(auth()->user(), $assignment),
+                'can_change_status' => $this->canChangeStatus($user, $assignment),
+                'available_statuses' => DepartmentStatus::forDepartment($assignment->department_id)->get(),
             ];
         });
 
@@ -1003,5 +1015,71 @@ class AssignmentController extends Controller
             'overdue_count' => $overdueCount,
             'completed_count' => $completedCount
         ]);
+    }
+
+    /**
+     * Update assignment status.
+     * Validates user permission and status code for department.
+     *
+     * @param Request $request
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $user = Auth::user();
+        $assignment = Assignment::findOrFail($id);
+
+        // Backend permission check
+        if (!$this->canChangeStatus($user, $assignment)) {
+            return response()->json(['message' => 'Unauthorized to change status'], 403);
+        }
+
+        // Validate status code exists for this department
+        $request->validate([
+            'status' => 'required|string',
+        ]);
+
+        // Check if status code is valid for this department
+        $validStatus = DepartmentStatus::where('department_id', $assignment->department_id)
+            ->where('code', $request->status)
+            ->first();
+
+        if (!$validStatus) {
+            return response()->json([
+                'message' => 'Invalid status code for this department',
+                'errors' => ['status' => ['The selected status is invalid for this department.']]
+            ], 422);
+        }
+
+        $assignment->update(['assignment_status' => $request->status]);
+
+        return response()->json([
+            'message' => 'Status updated successfully',
+            'assignment_status' => $assignment->assignment_status,
+            'status_details' => $validStatus,
+        ]);
+    }
+
+    /**
+     * Check if user can change assignment status.
+     *
+     * @param \App\Models\User $user
+     * @param \App\Models\Assignment $assignment
+     * @return bool
+     */
+    private function canChangeStatus($user, $assignment): bool
+    {
+        // Admins can always change
+        if ($user->hasRole('admin') || $user->hasRole('super-admin')) {
+            return true;
+        }
+
+        // Assigned user can change their own assignment status
+        if ($assignment->assigned_to_id === $user->id) {
+            return true;
+        }
+
+        return false;
     }
 }

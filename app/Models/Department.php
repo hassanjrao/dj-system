@@ -40,4 +40,12 @@ class Department extends Model
     {
         return $this->hasMany(MusicTypeCompletionDay::class);
     }
+
+    /**
+     * Get the statuses available for this department.
+     */
+    public function statuses()
+    {
+        return $this->hasMany(DepartmentStatus::class)->orderBy('sort_order');
+    }
 }

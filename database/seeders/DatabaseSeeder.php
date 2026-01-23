@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
             // DepartmentSeeder::class,
             PermissionSeeder::class,
             // LookupTableSeeder::class,
-            AssignmentStatusSeeder::class,
+            // AssignmentStatusSeeder removed - statuses now seeded via migration
             UserSeeder::class,
         ]);
     }
