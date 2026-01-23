@@ -168,7 +168,11 @@
                 }}</span>
               </template>
               <template v-slot:item.assignment_status="{ item }">
-                <v-chip :color="getStatusColor(item.assignment_status)" small>
+                <v-chip
+                  text-color="white"
+                  :color="getStatusColor(item.assignment_status)"
+                  small
+                >
                   {{ formatStatus(item.assignment_status) }}
                 </v-chip>
               </template>
