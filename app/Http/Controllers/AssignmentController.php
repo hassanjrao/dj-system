@@ -863,7 +863,8 @@ class AssignmentController extends Controller
 
         // Query for filtered assignments
         $query = Assignment::with([
-            'client', 'department', 'assignedTo', 'song', 'deliverables', 'status', 'createdBy'
+            'client', 'department', 'assignedTo', 'song.musicType', 'deliverables', 'status', 'createdBy',
+            'childAssignments.department' // For Music Creation to show child assignments as deliverables
         ]);
 
         // If scope is 'my', filter by assigned user
@@ -918,8 +919,12 @@ class AssignmentController extends Controller
 
         // dd($assignments);
 
+        // Get Music Creation department ID for comparison
+        $musicCreationDept = Department::where('slug', 'music-creation')->first();
+        $musicCreationDeptId = $musicCreationDept ? $musicCreationDept->id : null;
+
         // Return only needed fields for frontend
-        $assignments = $assignments->map(function ($assignment) use ($today) {
+        $assignments = $assignments->map(function ($assignment) use ($today, $musicCreationDeptId) {
             // Get formatted completion date and days using model methods
             $completionDateFormatted = $assignment->getFormattedCompletionDate();
             $completionDateDays = $assignment->getCompletionDateDays($today);
@@ -969,12 +974,25 @@ class AssignmentController extends Controller
                     'id' => $assignment->client->id,
                     'name' => $assignment->client->name,
                 ] : null,
-                'deliverables' => $assignment->deliverables->map(function ($deliverable) {
-                    return [
-                        'id' => $deliverable->id,
-                        'name' => $deliverable->name,
-                    ];
-                })->toArray(),
+                'music_type' => $assignment->song && $assignment->song->musicType ? [
+                    'id' => $assignment->song->musicType->id,
+                    'name' => $assignment->song->musicType->name,
+                ] : null,
+                // For Music Creation, show child assignments as deliverables; for others, show actual deliverables
+                'deliverables' => ($musicCreationDeptId && $assignment->department_id === $musicCreationDeptId)
+                    ? $assignment->childAssignments->map(function ($child) {
+                        return [
+                            'id' => $child->id,
+                            'name' => $child->department ? $child->department->name : 'Unknown',
+                        ];
+                    })->toArray()
+                    : $assignment->deliverables->map(function ($deliverable) {
+                        return [
+                            'id' => $deliverable->id,
+                            'name' => $deliverable->name,
+                        ];
+                    })->toArray(),
+                'is_music_creation' => $musicCreationDeptId && $assignment->department_id === $musicCreationDeptId,
                 'can_edit' => $this->canEditAssignment(auth()->user(), $assignment),
             ];
         });

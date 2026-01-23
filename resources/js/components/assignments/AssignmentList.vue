@@ -4,7 +4,7 @@
       <v-col cols="12">
         <v-card>
           <v-card-title>
-            <span>Assignments</span>
+            <span>{{ pageTitle }}</span>
             <v-tooltip bottom>
               <template v-slot:activator="{ on, attrs }">
                 <v-btn
@@ -112,8 +112,14 @@
                   <div class="font-weight-medium">
                     {{ item.assignment_display_name || "N/A" }}
                   </div>
+                  <div
+                    v-if="item.music_type"
+                    class="text-caption blue--text text--darken-1"
+                  >
+                    {{ item.music_type.name }}
+                  </div>
                   <div class="text-caption text--secondary">
-                    {{ item.assigned_to ? item.assigned_to.name : "N/A" }}
+                    {{ item.assigned_to ? item.assigned_to.name : "Unassigned" }}
                   </div>
                 </div>
               </template>
@@ -151,12 +157,14 @@
                     :key="deliverable.id"
                     small
                     class="mr-1 mb-1"
-                    color="primary"
+                    :color="item.is_music_creation ? 'teal' : 'primary'"
                   >
                     {{ deliverable.name }}
                   </v-chip>
                 </div>
-                <span v-else class="text--secondary">No deliverables</span>
+                <span v-else class="text--secondary">{{
+                  item.is_music_creation ? "No linked assignments" : "No deliverables"
+                }}</span>
               </template>
               <template v-slot:item.assignment_status="{ item }">
                 <v-chip :color="getStatusColor(item.assignment_status)" small>
@@ -225,6 +233,7 @@ export default {
       selectedClient: [],
       searchQuery: "",
       clients: [],
+      departments: [],
       activeCount: 0,
       overdueCount: 0,
       completedCount: 0,
@@ -239,12 +248,25 @@ export default {
       activeTab: 1, // Default to Active tab (index 1)
     };
   },
+  computed: {
+    pageTitle() {
+      if (this.departmentId && this.departments.length > 0) {
+        const dept = this.departments.find((d) => d.id == this.departmentId);
+        if (dept) {
+          return `${dept.name} Assignments`;
+        }
+      }
+      return "Assignments";
+    },
+  },
   mounted() {
     console.log("departmentId", this.departmentId);
     // Initialize headers based on department
     this.initializeHeaders();
     // Load clients for filter
     this.loadClients();
+    // Load departments for title
+    this.loadDepartments();
     // Load data (works for both "All" and specific department)
     this.getAssignments();
   },
@@ -316,6 +338,14 @@ export default {
         this.clients = response.data;
       } catch (error) {
         console.error("Error loading clients:", error);
+      }
+    },
+    async loadDepartments() {
+      try {
+        const response = await axios.get("/lookup/get-initial-data");
+        this.departments = response.data.departments || [];
+      } catch (error) {
+        console.error("Error loading departments:", error);
       }
     },
     debouncedSearch() {
