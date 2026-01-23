@@ -181,6 +181,7 @@ class Assignment extends Model
                 })
                 ->where(function ($subQuery) use ($user) {
                     $subQuery->where('created_by', $user->id)
+                             ->orWhere('assigned_to_id', $user->id)
                              ->orWhere('assignment_status', 'completed');
                 });
             });
