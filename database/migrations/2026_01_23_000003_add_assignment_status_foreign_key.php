@@ -14,8 +14,6 @@ class AddAssignmentStatusForeignKey extends Migration
      */
     public function up()
     {
-
-        return;
         // make assignment_status nullable
         Schema::table('assignments', function (Blueprint $table) {
             $table->string('assignment_status')->nullable()->change();
