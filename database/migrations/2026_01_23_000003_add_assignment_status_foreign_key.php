@@ -19,7 +19,7 @@ class AddAssignmentStatusForeignKey extends Migration
             $table->string('assignment_status')->nullable()->change();
         });
 
-        DB::table('assignments')->update(['assignment_status' => '']);
+        DB::table('assignments')->update(['assignment_status' => NULL]);
 
         // Add composite foreign key for assignment_status
         // This ensures the status code is valid for the assignment's department
