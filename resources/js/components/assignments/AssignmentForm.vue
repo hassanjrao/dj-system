@@ -26,9 +26,11 @@
           </div>
         </div>
         <div class="d-flex align-center">
-          <v-btn v-if="!isViewOnly" text small @click="cancel" class="mr-2">Cancel</v-btn>
+          <v-btn v-if="!effectiveIsViewOnly" text small @click="cancel" class="mr-2"
+            >Cancel</v-btn
+          >
           <v-btn
-            v-if="!isViewOnly && currentStep === 1"
+            v-if="!effectiveIsViewOnly && currentStep === 1"
             color="primary"
             small
             :loading="loading"
@@ -36,7 +38,7 @@
             >Next</v-btn
           >
           <v-btn
-            v-if="!isViewOnly && currentStep === 2 && !isEdit"
+            v-if="!effectiveIsViewOnly && currentStep === 2 && !isEdit"
             text
             small
             @click="goToPreviousStep"
@@ -44,7 +46,7 @@
             >Back</v-btn
           >
           <v-btn
-            v-if="!isViewOnly && currentStep === 2"
+            v-if="!effectiveIsViewOnly && currentStep === 2"
             color="primary"
             small
             :loading="loading"
@@ -52,7 +54,7 @@
             >Save</v-btn
           >
           <v-btn
-            v-if="!isViewOnly && currentStep >= 3"
+            v-if="!effectiveIsViewOnly && currentStep >= 3"
             text
             small
             @click="goToPreviousStep"
@@ -61,7 +63,7 @@
           >
           <v-btn
             v-if="
-              !isViewOnly &&
+              !effectiveIsViewOnly &&
               currentStep >= 3 &&
               currentChildIndex < childAssignmentsQueue.length - 1
             "
@@ -74,7 +76,7 @@
           >
           <v-btn
             v-if="
-              !isViewOnly &&
+              !effectiveIsViewOnly &&
               currentStep >= 3 &&
               currentChildIndex === childAssignmentsQueue.length - 1
             "
@@ -122,7 +124,7 @@
                 :rules="[(v) => !!v || 'Client is required']"
                 @change="onClientChange"
                 :search-input.sync="clientSearch"
-                :disabled="isViewOnly"
+                :disabled="effectiveIsViewOnly"
                 chips
                 small-chips
                 required
@@ -149,7 +151,7 @@
                 :rules="[(v) => !!v || 'Department is required']"
                 @change="onDepartmentChange"
                 :search-input.sync="departmentSearch"
-                :disabled="isViewOnly"
+                :disabled="effectiveIsViewOnly"
                 chips
                 small-chips
                 required
@@ -208,13 +210,13 @@
                 chips
                 small-chips
                 required
-                :disabled="isViewOnly"
+                :disabled="effectiveIsViewOnly"
                 hide-details="auto"
               ></v-autocomplete>
             </v-col>
 
             <!-- Status dropdown (only in edit/view mode) -->
-            <v-col v-if="isEdit || isViewOnly" cols="12" md="6">
+            <v-col v-if="isEdit || effectiveIsViewOnly" cols="12" md="6">
               <v-row align="center" no-gutters>
                 <v-col :cols="canChangeStatus && statusChanged ? 8 : 12">
                   <v-select
@@ -263,7 +265,8 @@
             :lookup-data="lookupData"
             :departments="departments"
             :assignment-data="currentAssignmentData"
-            :is-view-only="isViewOnly"
+            :is-view-only="effectiveIsViewOnly"
+            :has-existing-child-assignments="hasExistingChildAssignments"
             @update:modelValue="updateFormData"
           />
 
@@ -276,7 +279,7 @@
             :available-songs="availableSongs"
             :selected-department-id="formData.department_id || null"
             :assignment-data="currentAssignmentData"
-            :is-view-only="isViewOnly"
+            :is-view-only="effectiveIsViewOnly"
             @update:modelValue="updateFormData"
           />
 
@@ -290,9 +293,23 @@
             v-if="childDepartmentsWithData.length > 0 && canCreateChildAssignments"
             >PLEASE SELECT ALL ASSIGNMENTS THAT NEED TO BE LINKED</v-subheader
           >
+          <!-- Helper text when release date is not set -->
+          <v-alert
+            v-if="
+              childDepartmentsWithData.length > 0 &&
+              canCreateChildAssignments &&
+              !hasReleaseDate
+            "
+            type="info"
+            dense
+            outlined
+            class="mb-2"
+          >
+            Please set a Release Date above to enable child assignment selection.
+          </v-alert>
           <v-row v-if="childDepartmentsWithData.length > 0 && canCreateChildAssignments">
             <v-col cols="12">
-              <v-card>
+              <v-card :class="{ 'grey lighten-4': !hasReleaseDate }">
                 <v-card-text>
                   <v-row class="mb-2">
                     <v-col :cols="isEdit ? 3 : 12" class="font-weight-bold">
@@ -320,7 +337,11 @@
                         :value="dept.id"
                         v-model="formData.child_departments"
                         :label="dept.name"
-                        :disabled="isViewOnly"
+                        :disabled="
+                          effectiveIsViewOnly ||
+                          !hasReleaseDate ||
+                          dept.hasChildAssignment
+                        "
                         hide-details
                         dense
                       ></v-checkbox>
@@ -545,7 +566,7 @@
                 chips
                 small-chips
                 required
-                :disabled="isViewOnly"
+                :disabled="effectiveIsViewOnly"
               ></v-autocomplete>
             </v-col>
           </v-row>
@@ -564,7 +585,7 @@
             :lookup-data="lookupData"
             :departments="departments"
             :assignment-data="currentAssignmentData"
-            :is-view-only="isViewOnly"
+            :is-view-only="effectiveIsViewOnly"
             @update:modelValue="updateFormData"
           />
 
@@ -585,7 +606,7 @@
               null
             "
             :assignment-data="currentAssignmentData"
-            :is-view-only="isViewOnly"
+            :is-view-only="effectiveIsViewOnly"
             @update:modelValue="updateFormData"
           />
 
@@ -606,12 +627,12 @@
               <v-subheader>Notes</v-subheader>
             </v-col>
           </v-row>
-          <v-row v-if="currentStep >= 3 && formData.id && !isViewOnly">
+          <v-row v-if="currentStep >= 3 && formData.id && !effectiveIsViewOnly">
             <v-col cols="12" md="8">
               <v-text-field
                 v-model="newNote.note"
                 label="Note"
-                :disabled="loadingNotes || isViewOnly"
+                :disabled="loadingNotes || effectiveIsViewOnly"
               ></v-text-field>
             </v-col>
             <v-col cols="12" md="3">
@@ -623,7 +644,7 @@
                 label="Note For"
                 chips
                 small-chips
-                :disabled="loadingNotes || isViewOnly"
+                :disabled="loadingNotes || effectiveIsViewOnly"
               ></v-autocomplete>
             </v-col>
             <v-col cols="12" md="1" class="d-flex align-center">
@@ -632,7 +653,10 @@
                 color="primary"
                 @click="addNote"
                 :disabled="
-                  !newNote.note || !newNote.note_for || loadingNotes || isViewOnly
+                  !newNote.note ||
+                  !newNote.note_for ||
+                  loadingNotes ||
+                  effectiveIsViewOnly
                 "
                 :loading="loadingNotes"
               >
@@ -698,7 +722,7 @@
                   <v-list-item-action @click.stop>
                     <div v-if="editingNoteIndex !== index" class="d-flex flex-column">
                       <v-btn
-                        v-if="!isViewOnly && note.canEdit"
+                        v-if="!effectiveIsViewOnly && note.canEdit"
                         icon
                         small
                         color="primary"
@@ -708,7 +732,7 @@
                         <v-icon small>mdi-pencil</v-icon>
                       </v-btn>
                       <v-btn
-                        v-if="!isViewOnly && note.canDelete"
+                        v-if="!effectiveIsViewOnly && note.canDelete"
                         icon
                         small
                         color="error"
@@ -719,7 +743,7 @@
                     </div>
                     <div v-else class="d-flex flex-column">
                       <v-btn
-                        v-if="!isViewOnly"
+                        v-if="!effectiveIsViewOnly"
                         icon
                         small
                         color="success"
@@ -728,7 +752,12 @@
                       >
                         <v-icon small>mdi-check</v-icon>
                       </v-btn>
-                      <v-btn v-if="!isViewOnly" icon small @click.stop="cancelEditNote">
+                      <v-btn
+                        v-if="!effectiveIsViewOnly"
+                        icon
+                        small
+                        @click.stop="cancelEditNote"
+                      >
                         <v-icon small>mdi-close</v-icon>
                       </v-btn>
                     </div>
@@ -841,6 +870,10 @@ export default {
       type: Boolean,
       default: false,
     },
+    isCompletedProp: {
+      type: Boolean,
+      default: false,
+    },
     availableStatusesProp: {
       type: Array,
       default: () => [],
@@ -858,6 +891,10 @@ export default {
     isSuperAdmin() {
       return this.$store.getters["auth/isSuperAdmin"];
     },
+    // Effective view-only status - combines isViewOnly prop with completed status
+    effectiveIsViewOnly() {
+      return this.isViewOnly || this.isCompletedProp;
+    },
     currentUser() {
       return this.$store.getters["auth/user"];
     },
@@ -874,6 +911,19 @@ export default {
         return false;
       }
       return true;
+    },
+    hasReleaseDate() {
+      // Check if release date is set in formData (from song data)
+      return !!(
+        this.formData.song_release_date || this.currentAssignmentData?.song?.release_date
+      );
+    },
+    hasExistingChildAssignments() {
+      // Check if there are existing child assignments that were already saved
+      const assignmentData = this.currentAssignmentData;
+      return !!(
+        assignmentData?.childAssignments && assignmentData.childAssignments.length > 0
+      );
     },
     statusChanged() {
       return this.statusFormData.assignment_status !== this.originalStatus;
@@ -909,7 +959,7 @@ export default {
           (this.assignmentId ? `#${this.assignmentId}` : "");
       }
 
-      if (this.isViewOnly) {
+      if (this.effectiveIsViewOnly) {
         if (this.selectedDepartmentName) {
           return assignmentId
             ? `View ${this.selectedDepartmentName} Assignment ${assignmentId}`

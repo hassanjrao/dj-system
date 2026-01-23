@@ -22,7 +22,7 @@ class Song extends Model
     ];
 
     protected $casts = [
-        'release_date' => 'date',
+        'release_date' => 'datetime',
         'completion_date' => 'date',
     ];
 

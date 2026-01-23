@@ -11,7 +11,8 @@
             <assignment-form :model-value="{{ json_encode($assignment) }}" :is-edit="true"
                 :assignment-data="{{ json_encode($assignment) }}"
                 :available-statuses-prop="{{ json_encode($availableStatuses ?? []) }}"
-                :can-change-status-prop="{{ json_encode($canChangeStatus ?? false) }}">
+                :can-change-status-prop="{{ json_encode($canChangeStatus ?? false) }}"
+                :is-completed-prop="{{ json_encode($assignment->is_completed ?? false) }}">
             </assignment-form>
         </div>
     </div>

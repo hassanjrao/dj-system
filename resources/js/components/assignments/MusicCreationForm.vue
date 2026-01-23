@@ -120,13 +120,11 @@
 
         <!-- Release Date -->
         <v-text-field
-          v-if="canSetReleaseDate"
           v-model="songData.release_date"
-          label="Release Date & Time (PST) *"
+          :label="releaseDateLabel"
           type="datetime-local"
-          :rules="[(v) => !!v || 'Release date is required']"
-          :disabled="isViewOnly"
-          required
+          :rules="releaseDateRules"
+          :disabled="isViewOnly || !canSetReleaseDate"
         ></v-text-field>
 
         <!-- Due Date -->
@@ -197,6 +195,12 @@
 </template>
 
 <script>
+import {
+  formatDateTimeForInput,
+  formatDateForInput,
+  DATE_CONFIG,
+} from "../../utils/dateUtils";
+
 export default {
   name: "MusicCreationForm",
   props: {
@@ -225,6 +229,10 @@ export default {
       default: () => null,
     },
     isViewOnly: {
+      type: Boolean,
+      default: false,
+    },
+    hasExistingChildAssignments: {
       type: Boolean,
       default: false,
     },
@@ -260,10 +268,20 @@ export default {
     canSetReleaseDate() {
       // Users cannot set release date for MUSIC CREATION assignments
       // Only super-admin and admin can set release date
-      let can = !this.$store.getters["auth/hasRole"]("user");
-
-      console.log("can", can);
-      return can;
+      return !this.$store.getters["auth/hasRole"]("user");
+    },
+    releaseDateLabel() {
+      // Show asterisk only if child assignments exist (release date becomes required)
+      const asterisk = this.hasExistingChildAssignments ? " *" : "";
+      const timezone = DATE_CONFIG.useUTC ? "UTC" : "Local";
+      return `Release Date & Time (${timezone})${asterisk}`;
+    },
+    releaseDateRules() {
+      // Release date is required only if child assignments exist
+      if (this.hasExistingChildAssignments) {
+        return [(v) => !!v || "Release date is required when child assignments exist"];
+      }
+      return [];
     },
   },
   mounted() {
@@ -283,30 +301,6 @@ export default {
       const songSource = this.assignmentData?.song || this.modelValue?.song;
 
       if (songSource) {
-        // Format release_date for datetime-local input (YYYY-MM-DDTHH:mm)
-        let releaseDate = "";
-        if (songSource.release_date) {
-          const date = new Date(songSource.release_date);
-          if (!isNaN(date.getTime())) {
-            // Format as YYYY-MM-DDTHH:mm for datetime-local
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, "0");
-            const day = String(date.getDate()).padStart(2, "0");
-            const hours = String(date.getHours()).padStart(2, "0");
-            const minutes = String(date.getMinutes()).padStart(2, "0");
-            releaseDate = `${year}-${month}-${day}T${hours}:${minutes}`;
-          }
-        }
-
-        // Format completion_date for date input (YYYY-MM-DD)
-        let completionDate = "";
-        if (songSource.completion_date) {
-          const date = new Date(songSource.completion_date);
-          if (!isNaN(date.getTime())) {
-            completionDate = date.toISOString().split("T")[0];
-          }
-        }
-
         // Get artist IDs - check multiple sources
         let artists = [];
         if (this.assignmentData?.song_artists) {
@@ -325,8 +319,11 @@ export default {
           music_genre_id: songSource.music_genre_id || null,
           bpm: songSource.bpm || null,
           music_key_id: songSource.music_key_id || null,
-          release_date: releaseDate,
-          completion_date: completionDate,
+          release_date: formatDateTimeForInput(
+            songSource.release_date,
+            DATE_CONFIG.useUTC
+          ),
+          completion_date: formatDateForInput(songSource.completion_date),
           artists: artists,
         };
       }
@@ -342,8 +339,11 @@ export default {
           music_genre_id: this.parentData.song.music_genre_id || null,
           bpm: this.parentData.song.bpm || null,
           music_key_id: this.parentData.song.music_key_id || null,
-          release_date: this.parentData.song.release_date || "",
-          completion_date: this.parentData.song.completion_date || "",
+          release_date: formatDateTimeForInput(
+            this.parentData.song.release_date,
+            DATE_CONFIG.useUTC
+          ),
+          completion_date: formatDateForInput(this.parentData.song.completion_date),
           artists: this.parentData.song.artists
             ? this.parentData.song.artists.map((a) => a.id)
             : [],

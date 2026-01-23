@@ -427,6 +427,13 @@ class AssignmentController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
+        // Prevent any updates on completed assignments
+        if ($assignment->is_completed) {
+            return response()->json([
+                'error' => 'This assignment is completed and cannot be modified.'
+            ], 422);
+        }
+
         // Base validation
         $validated = $request->validate([
             'client_id' => 'nullable|exists:clients,id',
@@ -481,6 +488,34 @@ class AssignmentController extends Controller
                 return response()->json([
                     'error' => 'Users cannot create child assignments for MUSIC CREATION assignments. Release date must be set to create child assignments.'
                 ], 422);
+            }
+        }
+
+        // Additional validation for Music Creation assignments with existing child assignments
+        if ($isMusicCreation) {
+            // Load existing child assignments
+            $existingChildAssignments = $assignment->childAssignments()->get();
+            $existingChildDeptIds = $existingChildAssignments->pluck('department_id')->toArray();
+
+            if (count($existingChildDeptIds) > 0) {
+                // If child assignments exist, release date cannot be cleared
+                if ($request->has('song_release_date') && empty($request->song_release_date)) {
+                    return response()->json([
+                        'error' => 'Release date cannot be removed when child assignments exist.'
+                    ], 422);
+                }
+
+                // Prevent removal of existing child departments
+                if ($request->has('child_departments')) {
+                    $requestedChildDepts = is_array($request->child_departments) ? $request->child_departments : [];
+                    $removedDepts = array_diff($existingChildDeptIds, $requestedChildDepts);
+
+                    if (count($removedDepts) > 0) {
+                        return response()->json([
+                            'error' => 'Cannot remove existing child assignments. Child assignments that have been created cannot be unchecked.'
+                        ], 422);
+                    }
+                }
             }
         }
 
@@ -751,6 +786,11 @@ class AssignmentController extends Controller
 
     private function canEditAssignment($user, $assignment)
     {
+        // No one can edit completed assignments
+        if ($assignment->is_completed) {
+            // return false;
+        }
+
         if ($user->hasRole('super-admin') || $user->hasRole('admin')) {
             return true;
         }
@@ -1035,6 +1075,13 @@ class AssignmentController extends Controller
             return response()->json(['message' => 'Unauthorized to change status'], 403);
         }
 
+        // Prevent status changes on completed assignments
+        if ($assignment->is_completed) {
+            return response()->json([
+                'message' => 'This assignment is completed and cannot be modified.'
+            ], 422);
+        }
+
         // Validate status code exists for this department
         $request->validate([
             'status' => 'required|string',
@@ -1070,6 +1117,11 @@ class AssignmentController extends Controller
      */
     private function canChangeStatus($user, $assignment): bool
     {
+        // No one can change status of completed assignments
+        if ($assignment->is_completed) {
+            return false;
+        }
+
         // Admins can always change
         if ($user->hasRole('admin') || $user->hasRole('super-admin')) {
             return true;
