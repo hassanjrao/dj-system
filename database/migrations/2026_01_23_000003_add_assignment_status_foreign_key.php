@@ -15,6 +15,11 @@ class AddAssignmentStatusForeignKey extends Migration
     public function up()
     {
 
+        // make assignment_status nullable
+        Schema::table('assignments', function (Blueprint $table) {
+            $table->string('assignment_status')->nullable()->change();
+        });
+
         DB::table('assignments')->update(['assignment_status' => NULL]);
 
         // Add composite foreign key for assignment_status
@@ -25,6 +30,11 @@ class AddAssignmentStatusForeignKey extends Migration
                 ->on('department_statuses')
                 ->onDelete('restrict')
                 ->onUpdate('cascade');
+        });
+
+        // make assignment_status not nullable
+        Schema::table('assignments', function (Blueprint $table) {
+            $table->string('assignment_status')->nullable(false)->change();
         });
     }
 
