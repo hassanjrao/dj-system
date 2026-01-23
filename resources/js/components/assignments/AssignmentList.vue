@@ -156,7 +156,7 @@
                     v-for="deliverable in item.deliverables"
                     :key="deliverable.id"
                     small
-                    class="mr-1 mb-1"
+                    class="mr-1 mb-1 text--white"
                     :color="item.is_music_creation ? 'teal' : 'primary'"
                   >
                     {{ deliverable.name }}
