@@ -25,14 +25,14 @@
       :disabled="isViewOnly"
     ></v-text-field>
 
-    <!-- Completion Date (auto-calculated, editable) -->
+    <!-- Due Date (auto-calculated, editable) -->
     <v-row>
       <v-col cols="9">
         <v-text-field
           v-model="localData.completion_date"
-          label="Completion Date *"
+          label="Due Date *"
           type="date"
-          :rules="[(v) => !!v || 'Completion date is required']"
+          :rules="[(v) => !!v || 'Due date is required']"
           :disabled="isViewOnly"
           required
           hint="Auto-calculated based on song type and release date"

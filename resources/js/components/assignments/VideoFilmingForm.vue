@@ -66,12 +66,12 @@
       @change="onReleaseTimingChange"
     ></v-autocomplete>
 
-    <!-- Completion Date -->
+    <!-- Due Date -->
     <v-text-field
       v-model="localData.completion_date"
-      label="Completion Date *"
+      label="Due Date *"
       type="date"
-      :rules="[(v) => !!v || 'Completion date is required']"
+      :rules="[(v) => !!v || 'Due date is required']"
       :disabled="isViewOnly"
       required
       :hint="releaseTimingHint"
@@ -166,7 +166,7 @@ export default {
       if (this.localData.release_timing === "pre-release") {
         return "Auto-calculated based on Song Type and Release Date if linked to Music Creation";
       }
-      return "Select a completion date";
+      return "Select a due date";
     },
     availableChildDepartments() {
       return [

@@ -129,12 +129,12 @@
           required
         ></v-text-field>
 
-        <!-- Completion Date -->
+        <!-- Due Date -->
         <v-row>
           <v-col cols="9">
             <v-text-field
               v-model="songData.completion_date"
-              label="Completion Date"
+              label="Due Date"
               type="date"
               :disabled="isViewOnly"
             ></v-text-field>
