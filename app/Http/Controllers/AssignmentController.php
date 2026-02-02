@@ -842,7 +842,7 @@ class AssignmentController extends Controller
     private function canEditAssignment($user, $assignment)
     {
         // No one can edit completed assignments
-        if ($assignment->is_completed) {
+        if ($assignment->assignment_status == 'completed') {
             // return false;
         }
 

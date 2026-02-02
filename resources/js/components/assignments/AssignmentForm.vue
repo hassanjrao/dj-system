@@ -271,6 +271,7 @@
           />
 
           <MusicMasteringForm
+            ref="musicMasteringForm"
             v-else-if="formData.department_id === departmentIds.musicMasteringId"
             v-model="formData"
             :is-child="isChild"
@@ -590,6 +591,7 @@
           />
 
           <MusicMasteringForm
+            ref="musicMasteringFormChild"
             v-else-if="
               !childFormLoading &&
               formData.department_id === departmentIds.musicMasteringId
@@ -1544,7 +1546,17 @@ export default {
       const isValid = this.$refs.form && this.$refs.form.validate();
       console.log("Form validation result:", isValid);
 
-      if (isValid) {
+      // Additional validation for Music Mastering form (deliverables required)
+      let musicMasteringValid = true;
+      if (this.formData.department_id === this.departmentIds.musicMasteringId) {
+        const musicMasteringForm = this.$refs.musicMasteringForm || this.$refs.musicMasteringFormChild;
+        if (musicMasteringForm && typeof musicMasteringForm.validate === 'function') {
+          musicMasteringValid = musicMasteringForm.validate();
+          console.log("Music Mastering validation result:", musicMasteringValid);
+        }
+      }
+
+      if (isValid && musicMasteringValid) {
         this.loading = true;
 
         // Prepare form data (notes are handled separately via NoteController)

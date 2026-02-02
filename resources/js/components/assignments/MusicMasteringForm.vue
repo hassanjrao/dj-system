@@ -108,14 +108,22 @@
 
     <v-divider class="my-6" style="border-width: 2px; opacity: 0.5"></v-divider>
     <!-- Deliverables Section -->
-    <v-card outlined>
+    <v-card outlined :class="{ 'error-border': showDeliverableError }">
       <v-card-title class="text-subtitle-1 pb-0">
         Please Select All Deliverables Needed *
-        <span v-if="!isCreateMode" class="text-caption red--text ml-2">
-          At least one deliverable is required
-        </span>
       </v-card-title>
       <v-card-text>
+        <!-- Validation Error Message -->
+        <v-alert
+          v-if="showDeliverableError"
+          type="error"
+          dense
+          text
+          class="mb-3"
+        >
+          At least one deliverable is required
+        </v-alert>
+
         <!-- Create Mode: Simple checkbox selection -->
         <div v-if="isCreateMode">
           <v-row class="mb-2">
@@ -137,7 +145,7 @@
                 :disabled="isViewOnly"
                 hide-details
                 dense
-                @change="updateModel"
+                @change="onDeliverableChange"
               ></v-checkbox>
             </v-col>
           </v-row>
@@ -190,7 +198,7 @@
                 :items="completionStatusOptions"
                 item-text="name"
                 item-value="id"
-                :disabled="!canUpdateStatus || isViewOnly"
+                :disabled="!canUpdateStatus"
                 dense
                 hide-details
                 @change="onStatusChange(deliverable.id, 'completion_status_id')"
@@ -206,7 +214,7 @@
                 :items="waveUploadStatusOptions"
                 item-text="name"
                 item-value="id"
-                :disabled="!canUpdateStatus || isViewOnly || !isCompletionDone(deliverable.id)"
+                :disabled="!canUpdateStatus || !isCompletionDone(deliverable.id)"
                 dense
                 hide-details
                 @change="onStatusChange(deliverable.id, 'wave_upload_status_id')"
@@ -222,7 +230,7 @@
                 :items="mp3UploadStatusOptions"
                 item-text="name"
                 item-value="id"
-                :disabled="!canUpdateStatus || isViewOnly || !isCompletionDone(deliverable.id)"
+                :disabled="!canUpdateStatus || !isCompletionDone(deliverable.id)"
                 dense
                 hide-details
                 @change="onStatusChange(deliverable.id, 'mp3_upload_status_id')"
@@ -299,11 +307,13 @@ export default {
       deliverableStatuses: {},
       // Track pending status updates
       pendingStatusUpdates: {},
+      // Validation state
+      showDeliverableError: false,
     };
   },
   computed: {
     currentUser() {
-      return this.$store.getters["auth/user"];
+      return this.$store.getters["auth/user"]?.user;
     },
     isAdmin() {
       return this.$store.getters["auth/isAdmin"];
@@ -317,15 +327,29 @@ export default {
     },
     // Can manage deliverables (select/deselect): Admin, super-admin, or creator
     canManageDeliverables() {
-      if (this.isAdmin || this.isSuperAdmin) return true;
-      if (!this.assignmentData) return true; // Create mode
-      return this.assignmentData.created_by === this.currentUser?.id;
+      if (this.isAdmin || this.isSuperAdmin){
+         return true;
+      }
+      if (!this.assignmentData) {
+        return true;
+      }
+      console.log('canmanage',this.assignmentData.created_by.id, this.currentUser.id)
+      return this.assignmentData.created_by.id === this.currentUser.id;
     },
     // Can update status dropdowns: Assigned user, admin, or super-admin
     canUpdateStatus() {
-      if (this.isAdmin || this.isSuperAdmin) return true;
-      if (!this.assignmentData) return false;
-      return this.assignmentData.assigned_to_id === this.currentUser?.id;
+        console.log('canupdate',this.assignmentData.assigned_to_id, this.currentUser.id)
+      if (this.isAdmin || this.isSuperAdmin) {
+        return true;
+      }
+      if (!this.assignmentData) {
+        return false;
+      }
+      if (this.assignmentData.assigned_to_id === this.currentUser.id) {
+        console.log('canupdate true')
+        return true;
+      }
+      return false;
     },
     // Visible deliverables based on permissions
     visibleDeliverables() {
@@ -418,6 +442,20 @@ export default {
     }
   },
   methods: {
+    // Validation method - can be called by parent form
+    validate() {
+      const hasDeliverables = this.localData.deliverables && this.localData.deliverables.length > 0;
+      this.showDeliverableError = !hasDeliverables;
+      return hasDeliverables;
+    },
+    // Handle deliverable checkbox change
+    onDeliverableChange() {
+      // Clear error when user selects a deliverable
+      if (this.localData.deliverables && this.localData.deliverables.length > 0) {
+        this.showDeliverableError = false;
+      }
+      this.updateModel();
+    },
     // Helper methods to get display names
     getAlbumName(song) {
       if (song.album && song.album.name) return song.album.name;
@@ -767,3 +805,9 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.error-border {
+  border-color: #ff5252 !important;
+}
+</style>
