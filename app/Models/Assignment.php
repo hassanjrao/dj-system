@@ -101,8 +101,23 @@ class Assignment extends Model
     public function deliverables()
     {
         return $this->belongsToMany(Deliverable::class, 'assignment_deliverables')
-            ->withPivot('status', 'notes')
+            ->withPivot('completion_status_id', 'wave_upload_status_id', 'mp3_upload_status_id', 'notes')
             ->withTimestamps();
+    }
+
+    /**
+     * Get deliverables with their status details loaded.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getDeliverablesWithStatuses()
+    {
+        return $this->deliverables->map(function ($deliverable) {
+            $deliverable->completion_status = DeliverableStatus::find($deliverable->pivot->completion_status_id);
+            $deliverable->wave_upload_status = DeliverableStatus::find($deliverable->pivot->wave_upload_status_id);
+            $deliverable->mp3_upload_status = DeliverableStatus::find($deliverable->pivot->mp3_upload_status_id);
+            return $deliverable;
+        });
     }
 
     public function notes()
@@ -287,8 +302,11 @@ class Assignment extends Model
 
     /**
      * Auto-update assignment status for Music Mastering based on deliverables.
-     * - All deliverables completed/uploaded → status = 'completed'
-     * - Any deliverable pending → status = 'in-progress' (or 'pending' if none started)
+     * Status logic:
+     * - Pending: Default (no deliverables marked Done)
+     * - In Progress: At least one deliverable has completion_status = 'done'
+     * - Completed: ALL deliverables have completion_status = 'done' AND
+     *              wave_upload_status = 'uploaded' AND mp3_upload_status = 'uploaded'
      *
      * @return bool Whether status was updated
      */
@@ -306,19 +324,35 @@ class Assignment extends Model
             return false;
         }
 
-        // Check all deliverable statuses
-        $allCompleted = $deliverables->every(function ($deliverable) {
-            return in_array($deliverable->pivot->status, ['completed', 'uploaded']);
+        // Get the status codes for comparison
+        $doneStatusId = DeliverableStatus::where('type', 'completion')
+            ->where('code', 'done')
+            ->value('id');
+
+        $waveUploadedStatusId = DeliverableStatus::where('type', 'wave_upload')
+            ->where('code', 'uploaded')
+            ->value('id');
+
+        $mp3UploadedStatusId = DeliverableStatus::where('type', 'mp3_upload')
+            ->where('code', 'uploaded')
+            ->value('id');
+
+        // Check if all deliverables are fully completed (Done + Uploaded + Uploaded)
+        $allFullyCompleted = $deliverables->every(function ($deliverable) use ($doneStatusId, $waveUploadedStatusId, $mp3UploadedStatusId) {
+            return $deliverable->pivot->completion_status_id == $doneStatusId
+                && $deliverable->pivot->wave_upload_status_id == $waveUploadedStatusId
+                && $deliverable->pivot->mp3_upload_status_id == $mp3UploadedStatusId;
         });
 
-        $anyStarted = $deliverables->contains(function ($deliverable) {
-            return in_array($deliverable->pivot->status, ['completed', 'uploaded']);
+        // Check if any deliverable has completion_status = 'done'
+        $anyDone = $deliverables->contains(function ($deliverable) use ($doneStatusId) {
+            return $deliverable->pivot->completion_status_id == $doneStatusId;
         });
 
         // Determine new status
-        if ($allCompleted) {
+        if ($allFullyCompleted) {
             $newStatus = 'completed';
-        } elseif ($anyStarted) {
+        } elseif ($anyDone) {
             $newStatus = 'in-progress';
         } else {
             $newStatus = 'pending';

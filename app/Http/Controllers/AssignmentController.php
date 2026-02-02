@@ -218,9 +218,52 @@ class AssignmentController extends Controller
         ], 201);
     }
 
-    private function handleDeliverables(array $deliverableIds = [], Assignment $assignment)
+    private function handleDeliverables(array $deliverableIds = [], Assignment $assignment, array $deliverableStatuses = [])
     {
-        $assignment->deliverables()->sync($deliverableIds);
+        // Build sync data with pivot values
+        $syncData = [];
+
+        // Get default pending status IDs
+        $pendingCompletionId = \App\Models\DeliverableStatus::where('type', 'completion')
+            ->where('code', 'pending')
+            ->value('id');
+        $pendingWaveUploadId = \App\Models\DeliverableStatus::where('type', 'wave_upload')
+            ->where('code', 'pending')
+            ->value('id');
+        $pendingMp3UploadId = \App\Models\DeliverableStatus::where('type', 'mp3_upload')
+            ->where('code', 'pending')
+            ->value('id');
+
+        foreach ($deliverableIds as $deliverableId) {
+            // Check if we have existing status data for this deliverable
+            $existingPivot = $assignment->deliverables()
+                ->where('deliverables.id', $deliverableId)
+                ->first();
+
+            // Get existing pivot values if they exist
+            $existingCompletionStatusId = $existingPivot && $existingPivot->pivot ? $existingPivot->pivot->completion_status_id : null;
+            $existingWaveUploadStatusId = $existingPivot && $existingPivot->pivot ? $existingPivot->pivot->wave_upload_status_id : null;
+            $existingMp3UploadStatusId = $existingPivot && $existingPivot->pivot ? $existingPivot->pivot->mp3_upload_status_id : null;
+
+            // Use provided statuses, or existing pivot data, or defaults
+            $pivotData = [
+                'completion_status_id' => isset($deliverableStatuses[$deliverableId]['completion_status_id'])
+                    ? $deliverableStatuses[$deliverableId]['completion_status_id']
+                    : ($existingCompletionStatusId ?? $pendingCompletionId),
+                'wave_upload_status_id' => isset($deliverableStatuses[$deliverableId]['wave_upload_status_id'])
+                    ? $deliverableStatuses[$deliverableId]['wave_upload_status_id']
+                    : ($existingWaveUploadStatusId ?? $pendingWaveUploadId),
+                'mp3_upload_status_id' => isset($deliverableStatuses[$deliverableId]['mp3_upload_status_id'])
+                    ? $deliverableStatuses[$deliverableId]['mp3_upload_status_id']
+                    : ($existingMp3UploadStatusId ?? $pendingMp3UploadId),
+            ];
+
+            $syncData[$deliverableId] = $pivotData;
+        }
+
+        $assignment->deliverables()->sync($syncData);
+
+        $assignment->updateStatusFromDeliverables();
     }
 
     private function handleChildAssignments(array $childDepartments, Assignment $assignment)
@@ -329,8 +372,8 @@ class AssignmentController extends Controller
     {
         $validated = array_merge($validated, $request->validate([
             'song_id' => 'required|exists:songs,id',
-            'deliverables' => 'required|array',
-            'deliverables.*' => 'exists:deliverables,id',
+            'deliverables' => 'required|array|min:1',
+            'deliverable_statuses' => 'nullable|array',
         ]));
 
         // For child assignments, auto-populate from parent
@@ -427,8 +470,11 @@ class AssignmentController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        // Prevent any updates on completed assignments
-        if ($assignment->is_completed) {
+        // Prevent updates on completed assignments
+        // Exception: Music Mastering assignments can be updated because their status
+        // is derived from deliverable statuses and can change dynamically
+        $isMusicMastering = $assignment->department && $assignment->department->slug === 'music-mastering';
+        if ($assignment->is_completed && !$isMusicMastering) {
             return response()->json([
                 'error' => 'This assignment is completed and cannot be modified.'
             ], 422);
@@ -524,9 +570,17 @@ class AssignmentController extends Controller
             $assignment = $this->processMusicCreationData($request, $validated, $assignment, $isUserRole);
         } elseif ($department->slug === 'music-mastering') {
             $assignment = $this->processMusicMasteringData($request, $validated, $assignment, true);
-            // Handle deliverables
-            if ($request->has('deliverables') && is_array($request->deliverables)) {
-                $this->handleDeliverables($request->deliverables, $assignment);
+            // Handle deliverables with their statuses
+            if ($request->has('deliverables')) {
+                $deliverables = $request->input('deliverables', []);
+                // Ensure deliverables is an array of integers
+                if (is_array($deliverables) && count($deliverables) > 0) {
+                    $deliverableIds = array_map(function ($item) {
+                        return is_array($item) ? (int) ($item['id'] ?? $item) : (int) $item;
+                    }, $deliverables);
+                    $deliverableStatuses = $request->input('deliverable_statuses', []);
+                    $this->handleDeliverables($deliverableIds, $assignment, $deliverableStatuses);
+                }
             }
 
         } elseif ($department->slug === 'video-editing') {
@@ -640,7 +694,8 @@ class AssignmentController extends Controller
             $validated = array_merge($validated, $request->validate([
                 'song_id' => 'nullable|exists:songs,id',
                 'deliverables' => 'nullable|array',
-                'deliverables.*' => 'exists:deliverables,id',
+                'deliverables.*' => 'integer|exists:deliverables,id',
+                'deliverable_statuses' => 'nullable|array',
             ]));
 
             // For child assignments, auto-populate from parent

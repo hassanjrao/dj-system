@@ -53,7 +53,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{id}/available-songs', 'App\Http\Controllers\AssignmentController@getAvailableSongs');
         Route::patch('/{id}/status', 'App\Http\Controllers\AssignmentController@updateStatus');
 
-        Route::post('/{assignment}/deliverables/{deliverable}/status', 'App\Http\Controllers\DeliverableController@updateStatus');
+        Route::patch('/{assignment}/deliverables/{deliverable}/status', 'App\Http\Controllers\DeliverableController@updateStatus');
 
 
     });
@@ -116,6 +116,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('lookup/get-initial-data', 'App\Http\Controllers\LookupController@getInitialData');
     Route::get('lookup/departments', 'App\Http\Controllers\LookupController@departments');
     Route::get('lookup/deliverables', 'App\Http\Controllers\LookupController@deliverables');
+    Route::get('lookup/deliverable-statuses', 'App\Http\Controllers\LookupController@deliverableStatuses');
     Route::get('lookup/child-departments', 'App\Http\Controllers\LookupController@childDepartments');
     Route::get('lookup/department-statuses/{departmentId}', 'App\Http\Controllers\LookupController@departmentStatuses');
 

@@ -12,6 +12,7 @@ use App\Models\ReleaseTiming;
 use App\Models\Department;
 use App\Models\DepartmentStatus;
 use App\Models\Deliverable;
+use App\Models\DeliverableStatus;
 use App\Models\Client;
 
 class LookupController extends Controller
@@ -54,6 +55,21 @@ class LookupController extends Controller
     public function departmentStatuses($departmentId)
     {
         return response()->json(DepartmentStatus::forDepartment($departmentId)->get());
+    }
+
+    /**
+     * Get deliverable statuses grouped by type.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function deliverableStatuses()
+    {
+        $statuses = DeliverableStatus::active()
+            ->ordered()
+            ->get()
+            ->groupBy('type');
+
+        return response()->json($statuses);
     }
 
     public function deliverables(Request $request)
