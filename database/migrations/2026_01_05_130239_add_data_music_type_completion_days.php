@@ -2,6 +2,7 @@
 
 use App\Models\MusicTypeCompletionDay;
 use Database\Seeders\DepartmentSeeder;
+use Database\Seeders\LookupTableSeeder;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
