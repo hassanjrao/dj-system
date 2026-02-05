@@ -6,7 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\MusicType;
 use App\Models\MusicKey;
 use App\Models\MusicGenre;
-use App\Models\MusicCreationStatus;
+// use App\Models\MusicCreationStatus;
 use App\Models\EditType;
 use App\Models\FootageType;
 use App\Models\ReleaseTiming;
@@ -50,9 +50,9 @@ class LookupTableSeeder extends Seeder
             'DONE',
         ];
 
-        foreach ($statuses as $status) {
-            MusicCreationStatus::create(['name' => $status]);
-        }
+        // foreach ($statuses as $status) {
+        //     MusicCreationStatus::create(['name' => $status]);
+        // }
 
         // Music Keys
         $keys = [
