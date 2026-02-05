@@ -23,6 +23,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard.index');
 
+    Route::get('truncate', [DashboardController::class, 'truncate'])->name('dashboard.truncate');
+
     // Auth routes
     Route::get('/auth/user', 'App\Http\Controllers\AuthController@getCurrentUser');
 
