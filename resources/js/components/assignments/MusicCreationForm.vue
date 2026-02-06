@@ -125,6 +125,7 @@
           type="datetime-local"
           :rules="releaseDateRules"
           :disabled="isViewOnly || !canSetReleaseDate"
+          @input="onReleaseDateChanged"
         ></v-text-field>
 
         <!-- Due Date -->
@@ -455,24 +456,31 @@ export default {
         this.$refs.albumForm.resetValidation();
       }
     },
+    onReleaseDateChanged() {
+      // When user sets release date, auto-calculate due date from backend (Music Type Category lead time)
+      if (!this.songData.release_date || !this.songData.music_type_id) {
+        return;
+      }
+      this.calculateCompletionDate();
+    },
     calculateCompletionDate() {
-      // Calculate completion date based on song's music type and release date
+      // Calculate completion date from backend: days_before_release by music type category + department
       if (!this.songData.release_date || !this.songData.music_type_id) {
         return;
       }
 
-      // Get department ID for Music Creation
       const musicCreationDept = this.departments.find((d) => d.slug === "music-creation");
       if (!musicCreationDept) return;
 
       axios
-        .get(`/music-types/${this.songData.music_type_id}/completion-days`, {
-          params: {
-            department_id: musicCreationDept.id,
-          },
-        })
+        .get(
+          `/music-types/${this.songData.music_type_id}/${musicCreationDept.id}/completion-days`
+        )
         .then((response) => {
-          const daysBeforeRelease = response.data.days_before_release || 7;
+          const daysBeforeRelease = response.data.days_before_release;
+          if (daysBeforeRelease == null || daysBeforeRelease < 0) {
+            return;
+          }
           const releaseDate = new Date(this.songData.release_date);
           releaseDate.setDate(releaseDate.getDate() - daysBeforeRelease);
           this.songData.completion_date = releaseDate.toISOString().split("T")[0];
@@ -480,11 +488,6 @@ export default {
         })
         .catch((error) => {
           console.error("Error calculating completion date:", error);
-          // Fallback: calculate with default 7 days
-          const releaseDate = new Date(this.songData.release_date);
-          releaseDate.setDate(releaseDate.getDate() - 7);
-          this.songData.completion_date = releaseDate.toISOString().split("T")[0];
-          this.updateModel();
         });
     },
     updateModel() {
@@ -548,6 +551,12 @@ export default {
         this.updateModel();
       },
       deep: true,
+    },
+    "songData.music_type_id"(newVal) {
+      // When music type is set and release date exists, auto-calculate due date from backend
+      if (newVal && this.songData.release_date) {
+        this.calculateCompletionDate();
+      }
     },
   },
 };
