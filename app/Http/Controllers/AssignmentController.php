@@ -56,7 +56,7 @@ class AssignmentController extends Controller
 
         // Get lookup data
         $lookupData = [
-            'music_types' => \App\Models\MusicType::all(),
+            'music_types' => \App\Models\MusicType::orderBy('name')->get(),
             'music_keys' => \App\Models\MusicKey::all(),
             'music_genres' => \App\Models\MusicGenre::all(),
             'edit_types' => \App\Models\EditType::all(),
@@ -160,7 +160,7 @@ class AssignmentController extends Controller
 
         // Get lookup data
         $lookupData = [
-            'music_types' => \App\Models\MusicType::all(),
+            'music_types' => \App\Models\MusicType::orderBy('name')->get(),
             'music_keys' => \App\Models\MusicKey::all(),
             'music_genres' => \App\Models\MusicGenre::all(),
             'edit_types' => \App\Models\EditType::all(),

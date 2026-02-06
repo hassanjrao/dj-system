@@ -96,7 +96,7 @@
         <v-autocomplete
           v-model="songData.music_key_id"
           :items="lookupData.music_keys || []"
-          item-text="name"
+          item-text="display_name"
           item-value="id"
           label="Key"
           :disabled="isViewOnly"

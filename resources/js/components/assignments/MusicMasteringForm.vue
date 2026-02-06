@@ -482,12 +482,13 @@ export default {
       return "";
     },
     getMusicKeyName(song) {
-      if (song.music_key && song.music_key.name) return song.music_key.name;
+      if (song.music_key && (song.music_key.display_name || song.music_key.name))
+        return song.music_key.display_name || song.music_key.name;
       if (song.music_key_id && this.lookupData.music_keys) {
         const key = this.lookupData.music_keys.find(
           (k) => k.id === song.music_key_id
         );
-        return key ? key.name : "";
+        return key ? (key.display_name || key.name) : "";
       }
       return "";
     },

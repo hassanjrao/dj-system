@@ -19,37 +19,37 @@ class LookupController extends Controller
 {
     public function musicTypes()
     {
-        return response()->json(MusicType::where('is_active', true)->get());
+        return response()->json(MusicType::orderBy('name')->get());
     }
 
     public function musicKeys()
     {
-        return response()->json(MusicKey::where('is_active', true)->get());
+        return response()->json(MusicKey::all());
     }
 
     public function musicGenres()
     {
-        return response()->json(MusicGenre::where('is_active', true)->get());
+        return response()->json(MusicGenre::all());
     }
 
     public function editTypes()
     {
-        return response()->json(EditType::where('is_active', true)->get());
+        return response()->json(EditType::all());
     }
 
     public function footageTypes()
     {
-        return response()->json(FootageType::where('is_active', true)->get());
+        return response()->json(FootageType::all());
     }
 
     public function releaseTimings()
     {
-        return response()->json(ReleaseTiming::where('is_active', true)->get());
+        return response()->json(ReleaseTiming::all());
     }
 
     public function departments()
     {
-        return response()->json(Department::where('is_active', true)->get());
+        return response()->json(Department::all());
     }
 
     public function departmentStatuses($departmentId)
@@ -75,7 +75,7 @@ class LookupController extends Controller
     public function deliverables(Request $request)
     {
         $departmentId = $request->get('department_id');
-        $query = Deliverable::where('is_active', true);
+        $query = Deliverable::query();
 
         if ($departmentId) {
             $query->where('department_id', $departmentId);
@@ -153,7 +153,6 @@ class LookupController extends Controller
 
         // Get the actual department records
         $childDepartments = Department::whereIn('slug', $childDepartmentSlugs)
-            ->where('is_active', true)
             ->get(['id', 'name', 'slug']);
 
         return response()->json($childDepartments);
@@ -165,7 +164,6 @@ class LookupController extends Controller
 
         if (auth()->user()->hasRole('super-admin') || auth()->user()->hasRole('admin')) {
             $departmentList = Department::whereIn('id', [1,2])->get();
-            ;
         } else {
             $departmentList = auth()->user()->departments()->whereIn('departments.id', [1,2])
             ->orderBy('departments.id')
@@ -176,23 +174,23 @@ class LookupController extends Controller
             'departments' => $departmentList,
             'clients' => Client::orderBy('name')->get(),
             'lookup_data' => [
-                'music_types' => MusicType::where('is_active', true)->get(),
-                'music_keys' => MusicKey::where('is_active', true)->get(),
-                'music_genres' => MusicGenre::where('is_active', true)->get(),
-                'edit_types' => EditType::where('is_active', true)->get(),
-                'footage_types' => FootageType::where('is_active', true)->get(),
-                'release_timings' => ReleaseTiming::where('is_active', true)->get(),
+                'music_types' => MusicType::orderBy('name')->get(),
+                'music_keys' => MusicKey::all(),
+                'music_genres' => MusicGenre::all(),
+                'edit_types' => EditType::all(),
+                'footage_types' => FootageType::all(),
+                'release_timings' => ReleaseTiming::all(),
             ],
             'department_ids' => [
-                'musicCreationId' => $departments->where('slug', 'music-creation')->first()->id,
-                'musicMasteringId' => $departments->where('slug', 'music-mastering')->first()->id,
-                'graphicDesignId' => $departments->where('slug', 'graphic-design')->first()->id,
-                'videoFilmingId' => $departments->where('slug', 'video-filming')->first()->id,
-                'videoEditingId' => $departments->where('slug', 'video-editing')->first()->id,
-                'distributionVideoId' => $departments->where('slug', 'distribution-video')->first()->id,
-                'distributionGraphicId' => $departments->where('slug', 'distribution-graphic')->first()->id,
-                'distributionMusicId' => $departments->where('slug', 'distribution-music')->first()->id,
-                'marketingId' => $departments->where('slug', 'marketing')->first()->id,
+                'musicCreationId' => optional($departments->where('slug', 'music-creation')->first())->id,
+                'musicMasteringId' => optional($departments->where('slug', 'music-mastering')->first())->id,
+                'graphicDesignId' => optional($departments->where('slug', 'graphic-design')->first())->id,
+                'videoFilmingId' => optional($departments->where('slug', 'video-filming')->first())->id,
+                'videoEditingId' => optional($departments->where('slug', 'video-editing')->first())->id,
+                'distributionVideoId' => optional($departments->where('slug', 'distribution-video')->first())->id,
+                'distributionGraphicId' => optional($departments->where('slug', 'distribution-graphic')->first())->id,
+                'distributionMusicId' => optional($departments->where('slug', 'distribution-music')->first())->id,
+                'marketingId' => optional($departments->where('slug', 'marketing')->first())->id,
             ]
         ]);
     }

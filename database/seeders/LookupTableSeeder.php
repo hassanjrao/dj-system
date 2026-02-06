@@ -23,46 +23,6 @@ class LookupTableSeeder extends Seeder
      */
     public function run()
     {
-        // Music Types
-        $musicTypes = [
-            'Original',
-            'Remix Original',
-            'Remix Bootleg',
-            'Cover',
-            'Nonstop Longform Official',
-            'Nonstop Longform Bootleg',
-            'Nonstop Mashup Official',
-            'Nonstop Mashup',
-            'Experimental',
-            'Jingle',
-        ];
-
-        foreach ($musicTypes as $type) {
-            MusicType::create(['name' => $type]);
-        }
-
-        // Music Creation Statuses
-        $statuses = [
-            'CONCEPT',
-            'WAITING ON LYRICS',
-            'WAITING ON VOCALS',
-            'IN PRODUCTION',
-            'DONE',
-        ];
-
-        // foreach ($statuses as $status) {
-        //     MusicCreationStatus::create(['name' => $status]);
-        // }
-
-        // Music Keys
-        $keys = [
-            'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
-            'Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm',
-        ];
-
-        foreach ($keys as $key) {
-            MusicKey::create(['name' => $key]);
-        }
 
         // Music Genres (common genres)
         $genres = [
