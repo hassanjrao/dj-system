@@ -36,11 +36,6 @@ class Department extends Model
         return $this->hasMany(Deliverable::class);
     }
 
-    public function musicTypeCompletionDays()
-    {
-        return $this->hasMany(MusicTypeCompletionDay::class);
-    }
-
     /**
      * Get the statuses available for this department.
      */

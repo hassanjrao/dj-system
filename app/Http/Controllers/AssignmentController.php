@@ -6,7 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\Assignment;
 use App\Models\Department;
 use App\Models\DepartmentStatus;
-use App\Models\MusicTypeCompletionDay;
+use App\Models\MusicType;
+use App\Models\MusicTypeCategoryLeadTime;
 use App\Models\Deliverable;
 use App\Models\Artist;
 use App\Models\Song;
@@ -757,16 +758,20 @@ class AssignmentController extends Controller
             return null;
         }
 
-        $completionDay = MusicTypeCompletionDay::where('music_type_id', $musicTypeId)
+        $musicType = MusicType::find($musicTypeId);
+        if (!$musicType || !$musicType->music_type_category_id) {
+            return null;
+        }
+
+        $leadTime = MusicTypeCategoryLeadTime::where('music_type_category_id', $musicType->music_type_category_id)
             ->where('department_id', $departmentId)
             ->first();
 
-        if ($completionDay) {
-            return Carbon::parse($releaseDate)->subDays($completionDay->days_before_release)->format('Y-m-d');
+        if (!$leadTime) {
+            return null;
         }
 
-        // Default to 7 days before release
-        return Carbon::parse($releaseDate)->subDays(7)->format('Y-m-d');
+        return Carbon::parse($releaseDate)->subDays($leadTime->days_before_release)->format('Y-m-d');
     }
 
     private function preSelectDeliverables($departmentId, $requestedDeliverables = [])
@@ -810,8 +815,21 @@ class AssignmentController extends Controller
             'parent_assignment_id' => $parentAssignment->id,
         ], $childData);
 
-
-        // $this->handleDeliverables([], $childAssignment);
+        // Auto-set completion_date from parent song's release date and music type category
+        if ($parentAssignment->song_id) {
+            $parentAssignment->loadMissing('song');
+            $song = $parentAssignment->song;
+            if ($song && $song->release_date && $song->music_type_id) {
+                $calculatedDate = $this->calculateCompletionDate(
+                    $song->music_type_id,
+                    $childDepartmentId,
+                    $song->release_date
+                );
+                if ($calculatedDate) {
+                    $childAssignment->update(['completion_date' => $calculatedDate]);
+                }
+            }
+        }
 
         // Ensure department relation is available for response payloads
         $childAssignment->loadMissing('department');
@@ -900,13 +918,17 @@ class AssignmentController extends Controller
 
     public function getCompletionDays($musicTypeId, $departmentId)
     {
-        $completionDay = MusicTypeCompletionDay::query()
-        ->where('music_type_id', $musicTypeId)
-        ->where('department_id', $departmentId)
-        ->first();
+        $musicType = MusicType::find($musicTypeId);
+        if (!$musicType || !$musicType->music_type_category_id) {
+            return response()->json(['days_before_release' => 0]);
+        }
+
+        $leadTime = MusicTypeCategoryLeadTime::where('music_type_category_id', $musicType->music_type_category_id)
+            ->where('department_id', $departmentId)
+            ->first();
 
         return response()->json([
-            'days_before_release' => $completionDay->days_before_release ?? 7
+            'days_before_release' => $leadTime ? $leadTime->days_before_release : 0,
         ]);
     }
 

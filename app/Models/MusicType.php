@@ -28,9 +28,4 @@ class MusicType extends Model
     {
         return $this->hasMany(Assignment::class);
     }
-
-    public function completionDays()
-    {
-        return $this->hasMany(MusicTypeCompletionDay::class);
-    }
 }

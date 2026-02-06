@@ -11,7 +11,6 @@ use App\Models\EditType;
 use App\Models\FootageType;
 use App\Models\ReleaseTiming;
 use App\Models\Department;
-use App\Models\MusicTypeCompletionDay;
 use App\Models\Deliverable;
 
 class LookupTableSeeder extends Seeder
